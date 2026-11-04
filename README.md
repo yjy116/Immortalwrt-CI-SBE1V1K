@@ -17,7 +17,7 @@
 
 常用插件及来源已按参考仓库对齐，包括 HomeProxy、PassWall、OpenClash、Nikki、DAE / DAED、Honk / Doona、qBittorrent、AdGuard Home、DDNS-Go、Lucky、Tailscale、EasyTier、NATMapT、SQM、UPnP、ttyd、Samba4、WireGuard、ZeroTier、磁盘管理、WOLUltra 和流量统计；主题包括 Vantage、Aurora 和 Footstrap。具体来源与分支见 [插件说明](docs/PLUGINS.md)。
 
-SBE1V1K 没有外露 USB 接口，两种版本都排除 USB 打印、存储、网卡及调制解调器相关包。保留服务于板载 eMMC 的磁盘和文件系统工具；依据见 [设备说明](docs/DEVICE.md)。
+SBE1V1K 没有外露 USB 接口，不选择 USB 打印、手机互联等应用。USB 内核驱动、`automount` 及其依赖保留源码原生默认，不为剔除它们维护补丁或额外构建限制。保留服务于板载 eMMC 的磁盘和文件系统工具；依据见 [设备说明](docs/DEVICE.md)。
 
 Honk 保留上游的启动、停止、重启操作。停止会保存关闭状态，正常设备启动不会擅自开启；主动点击启动或重启允许开启服务。Doona 由同一 Honk 服务提供。首次使用仍需完成上游要求的初始化。
 
@@ -57,7 +57,7 @@ Honk 保留上游的启动、停止、重启操作。停止会保存关闭状态
 
 ## 修改配置
 
-在 `Config/` 中调整编译选项，在 `Scripts/defaults.py` 中设置默认 IP、主机名和主题。LAN 地址和主机名只修改上游生成默认值，保留配置升级时不会由本仓库脚本重置。Vantage 首次注册沿用其上游行为，可能切换已有主题。修改后先运行静态检查和 `CONFIG_ONLY=true` 的配置检查，再执行完整构建；从日志确认所需软件包没有被依赖解析取消。
+在 `Config/` 中调整编译选项，在 `Scripts/defaults.py` 中设置默认 IP、主机名和主题。LAN 地址和主机名只修改上游生成默认值，保留配置升级时不会由本仓库脚本重置。Vantage 首次注册沿用其上游行为，可能切换已有主题。修改后运行静态检查；完整构建会先展开并验证配置，确认所需软件包没有被依赖解析取消。`CONFIG_ONLY=true` 可用于单独诊断，无需每次重复运行。
 
 本地检查：`python3 -m unittest discover -s Tests -v`。Linux CI 对测试设置 60 秒超时，并运行 shell 语法检查与 actionlint。每个显式配置选项均会在 `make defconfig` 后核对，缺包会使任务失败。
 

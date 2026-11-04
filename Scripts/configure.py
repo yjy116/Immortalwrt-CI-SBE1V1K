@@ -65,7 +65,7 @@ def expand_config(source):
 
 def configure(source, wifi):
     profile = ROOT / "Config" / f"SBE1V1K-WIFI-{wifi.upper()}.txt"
-    fragments = [profile, ROOT / "Config/GENERAL.txt", ROOT / "Config/NO-USB.txt"]
+    fragments = [profile, ROOT / "Config/GENERAL.txt"]
     text = "\n".join(path.read_text() for path in fragments)
     requested = parse_config(text)
     config = source / ".config"

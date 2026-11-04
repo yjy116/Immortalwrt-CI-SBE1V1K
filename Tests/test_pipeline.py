@@ -124,14 +124,12 @@ class ArtifactTests(unittest.TestCase):
         self.manifest(REQUIRED_PACKAGES)
         verify_images(self.target, "no")
 
-    def test_rejects_usb_peripherals_in_both_variants(self):
+    def test_accepts_upstream_usb_driver_defaults_in_both_variants(self):
         for wifi in ("yes", "no"):
-            for package in ("automount", "kmod-usb3", "kmod-usb-net-rndis", "p910nd"):
-                with self.subTest(wifi=wifi, package=package):
-                    self.manifest(REQUIRED_PACKAGES | WIRELESS_PACKAGES | {package}
-                                  if wifi == "yes" else REQUIRED_PACKAGES | {package})
-                    with self.assertRaisesRegex(ValueError, "USB peripheral packages remain"):
-                        verify_images(self.target, wifi)
+            with self.subTest(wifi=wifi):
+                packages = REQUIRED_PACKAGES | {"automount", "kmod-usb3", "kmod-usb-storage"}
+                self.manifest(packages | WIRELESS_PACKAGES if wifi == "yes" else packages)
+                verify_images(self.target, wifi)
 
     def test_rejects_missing_recovery_image(self):
         self.images.pop(0)
