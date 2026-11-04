@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "sources": [
+    {
+      "name": "vantage",
+      "url": "https://github.com/anothaDev/luci-theme-vantage.git",
+      "commit": "cddbfb262b7a67a0d3762039e4af66fc0ac92000",
+      "packages": [
+        {"name": "luci-theme-vantage", "path": "luci-theme-vantage"},
+        {"name": "luci-app-vantage", "path": "luci-app-vantage"}
+      ]
+    },
+    {
+      "name": "nikki",
+      "url": "https://github.com/nikkinikki-org/OpenWrt-nikki.git",
+      "commit": "78e1a751d55ed0762811f054ee699049473da7b8",
+      "packages": [
+        {"name": "luci-app-nikki", "path": "luci-app-nikki"},
+        {"name": "nikki", "path": "nikki"},
+        {"name": "mihomo-meta", "path": "mihomo-meta"}
+      ]
+    },
+    {
+      "name": "easytier",
+      "url": "https://github.com/EasyTier/luci-app-easytier.git",
+      "commit": "9c51d3f8d2bfcefd039f2ff2354c6a7674293a06",
+      "packages": [
+        {"name": "luci-app-easytier", "path": "luci-app-easytier"},
+        {"name": "easytier", "path": "easytier"}
+      ],
+      "files": ["version.mk"]
+    },
+    {
+      "name": "lucky",
+      "url": "https://github.com/gdy666/luci-app-lucky.git",
+      "commit": "91b506627c1d81fa323816e3aeafcbde493d03a9",
+      "packages": [
+        {"name": "luci-app-lucky", "path": "luci-app-lucky"},
+        {"name": "lucky", "path": "lucky"}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,90 @@
+name: WRT-CORE
+
+on:
+  workflow_call:
+    inputs:
+      wifi:
+        required: true
+        type: string
+      config_only:
+        required: true
+        type: boolean
+      source_ref:
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: SBE1V1K WiFi-${{ inputs.wifi }}
+    runs-on: ubuntu-24.04
+    env:
+      WIFI: ${{ inputs.wifi }}
+      SOURCE_REF: ${{ inputs.source_ref }}
+      CONFIG_ONLY: ${{ inputs.config_only }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Prepare Linux build environment
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: bash Scripts/setup_runner.sh
+      - name: Checkout upstream
+        run: python3 Scripts/checkout_source.py --destination wrt --ref "$SOURCE_REF"
+      - name: Install feeds and pinned packages
+        run: |
+          cd wrt
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+          cd ..
+          python3 Scripts/prepare_packages.py --source wrt \
+            --manifest Config/packages.json --output wrt/ci-packages.json
+      - name: Expand and verify configuration
+        run: python3 Scripts/configure.py --source wrt --wifi "$WIFI"
+      - name: Restore compiler cache
+        if: ${{ !inputs.config_only }}
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: wrt/.ccache
+          key: sbe1v1k-ubuntu24-${{ inputs.wifi }}-${{ hashFiles('wrt/.config', 'wrt/ci-source.json', 'wrt/ci-feeds.json', 'Config/packages.json', 'Scripts/**') }}-${{ github.run_id }}
+          restore-keys: |
+            sbe1v1k-ubuntu24-${{ inputs.wifi }}-${{ hashFiles('wrt/.config', 'wrt/ci-source.json', 'wrt/ci-feeds.json', 'Config/packages.json', 'Scripts/**') }}-
+      - name: Download source archives
+        if: ${{ !inputs.config_only }}
+        working-directory: wrt
+        run: make download -j"$(nproc)" V=s
+      - name: Compile firmware
+        if: ${{ !inputs.config_only }}
+        working-directory: wrt
+        run: make -j"$(nproc)" V=s
+      - name: Verify and collect outputs
+        run: |
+          args=(--source wrt --output artifacts --wifi "$WIFI")
+          if [[ "$CONFIG_ONLY" == true ]]; then args+=(--config-only); fi
+          python3 Scripts/collect_artifacts.py "${args[@]}"
+          printf '### SBE1V1K WiFi-%s\n\n管理地址：192.168.70.1\n\nCONFIG_ONLY=%s\n' \
+            "$WIFI" "$CONFIG_ONLY" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sbe1v1k-wifi-${{ inputs.wifi }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/
+          if-no-files-found: error
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: diagnostics-wifi-${{ inputs.wifi }}-${{ github.run_id }}-${{ github.run_attempt }}
+          include-hidden-files: true
+          path: |
+            wrt/.config
+            wrt/ci-*.json
+            wrt/tmp/.config-*
+            wrt/logs/

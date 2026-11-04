@@ -1,0 +1,6 @@
+.codex-tasks/
+wrt/
+artifacts/
+__pycache__/
+*.pyc
+.venv/

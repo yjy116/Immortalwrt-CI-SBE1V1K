@@ -1,0 +1,92 @@
+name: Build SBE1V1K
+
+on:
+  workflow_dispatch:
+    inputs:
+      WIFI_MODE:
+        description: '构建版本：both 同时构建 WiFi / 无 WiFi'
+        type: choice
+        options: [both, 'yes', 'no']
+        default: both
+      CONFIG_ONLY:
+        description: '仅展开并验证配置，不编译固件'
+        type: boolean
+        default: false
+      PUBLISH:
+        description: '编译成功后发布 GitHub Release'
+        type: boolean
+        default: true
+      SOURCE_REF:
+        description: '源码分支或提交；留空使用 Config/source.json 锁定提交'
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  matrix:
+    runs-on: ubuntu-24.04
+    outputs:
+      wifi: ${{ steps.select.outputs.wifi }}
+    steps:
+      - id: select
+        env:
+          WIFI_MODE: ${{ inputs.WIFI_MODE }}
+        run: |
+          case "$WIFI_MODE" in
+            both) echo 'wifi=["yes","no"]' >> "$GITHUB_OUTPUT" ;;
+            yes|no) printf 'wifi=["%s"]\n' "$WIFI_MODE" >> "$GITHUB_OUTPUT" ;;
+            *) echo 'Unsupported WIFI_MODE' >&2; exit 1 ;;
+          esac
+
+  build:
+    needs: matrix
+    strategy:
+      fail-fast: false
+      matrix:
+        wifi: ${{ fromJSON(needs.matrix.outputs.wifi) }}
+    uses: ./.github/workflows/WRT-CORE.yml
+    with:
+      wifi: ${{ matrix.wifi }}
+      config_only: ${{ inputs.CONFIG_ONLY }}
+      source_ref: ${{ inputs.SOURCE_REF }}
+
+  release:
+    if: ${{ !inputs.CONFIG_ONLY && inputs.PUBLISH }}
+    needs: [matrix, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        wifi: ${{ fromJSON(needs.matrix.outputs.wifi) }}
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: sbe1v1k-wifi-${{ matrix.wifi }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts
+      - name: Publish verified firmware
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          WIFI: ${{ matrix.wifi }}
+          CI_COMMIT: ${{ github.sha }}
+        run: |
+          cd artifacts
+          sha256sum -c SHA256SUMS-CI
+          source_commit=$(jq -r .commit ci-source.json)
+          tag="sbe1v1k-wifi-${WIFI}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          cat > "$RUNNER_TEMP/release-notes.md" <<EOF
+          SBE1V1K / qualcommbe / ipq95xx / WiFi-${WIFI}
+
+          管理地址：192.168.70.1；首次登录请设置 root 密码。
+          源码提交：${source_commit}；CI 提交：${CI_COMMIT}。
+          无线版本初始不启用广播，启用前请设置实际国家和加密口令。
+          factory.bin 不是原厂 Web 直刷包；请阅读仓库 docs/DEVICE.md。
+          本发布证明编译和产物校验通过，不代表实机验证。
+          EOF
+          mapfile -d '' assets < <(find . -maxdepth 1 -type f -print0)
+          gh release create "$tag" "${assets[@]}" --target "$CI_COMMIT" \
+            --title "SBE1V1K WiFi-${WIFI} ${GITHUB_RUN_ID}" \
+            --notes-file "$RUNNER_TEMP/release-notes.md"

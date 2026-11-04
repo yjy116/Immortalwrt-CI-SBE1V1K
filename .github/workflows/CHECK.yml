@@ -1,0 +1,27 @@
+name: Repository checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Test configuration and packaging contracts
+        run: timeout 60s python3 -m unittest discover -s Tests -v
+      - name: Check shell syntax
+        run: |
+          bash -n Scripts/setup_runner.sh
+          sh -n files/etc/uci-defaults/99-sbe1v1k-ci
+      - name: Validate workflow syntax
+        run: |
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+          "$(go env GOPATH)/bin/actionlint" -color
