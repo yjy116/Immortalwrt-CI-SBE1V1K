@@ -51,7 +51,9 @@ Honk 保留上游的启动、停止、重启操作。停止会保存关闭状态
 
 每次 Actions Summary 会显示实际恢复的缓存键，产物 `ci-cache.json` 保存兼容性依据。没有缓存的首次编译不会因此立即加速，后续命中才可省去重复的工具链工作；插件自身的 Go/Rust 等构建仍可能耗时。缓存不包含完整 `build_dir`、目标 staging、feeds、下载目录或旧固件。
 
-2026-11-04：此前精简插件配置已通过 [WiFi / 无 WiFi 配置展开](https://github.com/yjy116/Immortalwrt-CI-SBE1V1K/actions/runs/41752732682)。本次扩充插件后的验证与完整固件结果以对应提交的 Actions / Release 为准，旧配置结果不能代替新配置验收；尚无实机验证记录。
+2026-11-04：[完整构建](https://github.com/yjy116/Immortalwrt-CI-SBE1V1K/actions/runs/41763922900)的 WiFi / 无 WiFi 两个编译任务及产物检查均成功，均未触发详细重试。`ci-compile.log` 分别为 311 / 306 行；完整缓存分别保存约 932 / 891 MB。本轮是冷构建，尚未实测缓存恢复后的提速。
+
+该次运行的旧发布命令遇到权限错误，已通过[独立发布工作流](https://github.com/yjy116/Immortalwrt-CI-SBE1V1K/actions/runs/41783824145)使用原 Artifact 成功发布：[WiFi 版](https://github.com/yjy116/Immortalwrt-CI-SBE1V1K/releases/tag/sbe1v1k-wifi-yes-41763922900-1)、[无 WiFi 版](https://github.com/yjy116/Immortalwrt-CI-SBE1V1K/releases/tag/sbe1v1k-wifi-no-41763922900-1)。来源为当次解析的 `owrt` 提交 `a8d4a44c8ede4c703e8866fbf709b34dd1506294`；此处仅记录验证结果，不锁定后续构建。尚无实机验证记录。
 
 ## 下载文件
 
