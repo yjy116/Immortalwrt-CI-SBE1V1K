@@ -48,7 +48,7 @@
 
 ## 修改配置
 
-在 `Config/` 中调整编译选项，在 `Scripts/` 中维护构建处理。修改后先运行静态检查和 `CONFIG_ONLY=true` 的配置检查，再执行完整构建；从日志确认所需软件包没有被依赖解析取消。
+在 `Config/` 中调整编译选项，在 `Scripts/defaults.py` 中设置默认 IP、主机名和主题。默认值只修改上游配置生成路径，保留配置升级时不覆盖已保存的 UCI 配置。修改后先运行静态检查和 `CONFIG_ONLY=true` 的配置检查，再执行完整构建；从日志确认所需软件包没有被依赖解析取消。
 
 本地检查：`python3 -m unittest discover -s Tests -v`。Linux CI 对测试设置 60 秒超时，并运行 shell 语法检查与 actionlint。每个显式配置选项均会在 `make defconfig` 后核对，缺包会使任务失败。
 

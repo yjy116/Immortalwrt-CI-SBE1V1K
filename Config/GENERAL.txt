@@ -1,6 +1,7 @@
 # Common packages for ImmortalWrt master / qualcommbe / ipq95xx.
 # Official feeds are preferred; external sources are pinned in packages.json.
 CONFIG_CCACHE=y
+CONFIG_DEVEL=y
 CONFIG_PACKAGE_luci=y
 CONFIG_LUCI_LANG_zh_Hans=y
 CONFIG_PACKAGE_luci-compat=y

@@ -10,6 +10,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "Scripts" / "prepare_packages.py"
 TIMEOUT_SECONDS = 30
+WINDOWS_PRIVILEGE_NOT_HELD = 1314
 
 
 def git(repo, *args):
@@ -106,6 +107,8 @@ class PackageInstallerTests(unittest.TestCase):
         try:
             link.symlink_to(external, target_is_directory=True)
         except OSError as error:
+            if getattr(error, "winerror", None) != WINDOWS_PRIVILEGE_NOT_HELD:
+                raise
             self.skipTest(f"Directory symlinks unavailable: {error}")
         result = self.run_installer()
         self.assertEqual(result.returncode, 0, result.stderr)

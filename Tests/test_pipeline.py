@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "Scripts"))
 from collect_artifacts import IMAGE_SUFFIXES, REQUIRED_PACKAGES, WIRELESS_PACKAGES, verify_images
 from configure import DEVICE_SYMBOL, parse_config, verify
+from defaults import LAN_IP, apply_defaults
 
 
 class ConfigTests(unittest.TestCase):
@@ -36,9 +37,32 @@ class ConfigTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Expected exactly"):
             verify({}, {DEVICE_SYMBOL: "y", "CONFIG_TARGET_qualcommbe_ipq95xx_DEVICE_qcom_rdp433": "y"})
 
-    def test_overlay_uses_requested_lan_address(self):
-        overlay = (ROOT / "files/etc/uci-defaults/99-sbe1v1k-ci").read_text()
-        self.assertIn("network.lan.ipaddr='192.168.70.1'", overlay)
+class DefaultsTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.source = Path(self.temporary.name)
+        self.generator = self.source / "package/base-files/files/bin/config_generate"
+        self.luci = self.source / "feeds/luci/modules/luci-base/root/etc/config/luci"
+        self.generator.parent.mkdir(parents=True)
+        self.luci.parent.mkdir(parents=True)
+        self.generator.write_text('lan) ipad=${ipaddr:-"192.168.1.1"} ;;\nhostname=\'ImmortalWrt\'\n')
+        self.luci.write_text("option mediaurlbase '/luci-static/bootstrap'\n")
+
+    def test_changes_only_generation_defaults(self):
+        self.assertEqual(LAN_IP, "192.168.70.1")
+        apply_defaults(self.source)
+        self.assertIn('ipad=${ipaddr:-"192.168.70.1"}', self.generator.read_text())
+        self.assertIn("hostname='SBE1V1K'", self.generator.read_text())
+        self.assertIn("/luci-static/vantage", self.luci.read_text())
+        self.assertFalse((self.source / "files/etc/uci-defaults").exists())
+
+    def test_upstream_drift_fails_before_any_file_change(self):
+        original = self.generator.read_text()
+        self.luci.write_text("changed upstream\n")
+        with self.assertRaisesRegex(ValueError, "Expected one upstream"):
+            apply_defaults(self.source)
+        self.assertEqual(self.generator.read_text(), original)
 
 
 class ArtifactTests(unittest.TestCase):

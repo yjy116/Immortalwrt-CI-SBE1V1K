@@ -4,9 +4,10 @@
 import argparse
 import json
 import re
-import shutil
 import subprocess
 from pathlib import Path
+
+from defaults import apply_defaults
 
 ROOT = Path(__file__).resolve().parents[1]
 DEVICE_SYMBOL = "CONFIG_TARGET_qualcommbe_ipq95xx_DEVICE_askey_sbe1v1k"
@@ -58,7 +59,7 @@ def configure(source, wifi):
     requested = parse_config(text)
     config = source / ".config"
     config.write_text(text, encoding="utf-8")
-    shutil.copytree(ROOT / "files", source / "files", dirs_exist_ok=True)
+    apply_defaults(source)
     subprocess.run(["make", "defconfig"], cwd=source, check=True)
     verify(requested, parse_config(config.read_text()))
     record_feeds(source)
