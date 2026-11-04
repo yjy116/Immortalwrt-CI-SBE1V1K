@@ -13,7 +13,7 @@ EXPECTED_ASSET_COUNT = 7
 
 def github(arguments):
     result = subprocess.run(
-        ["gh", "api", *arguments], check=True, text=True, stdout=subprocess.PIPE,
+        ["gh", "api", *arguments], check=True, encoding="utf-8", stdout=subprocess.PIPE,
     )
     return json.loads(result.stdout) if result.stdout.strip() else None
 
