@@ -15,6 +15,9 @@ on:
       package_snapshots:
         required: true
         type: string
+      build_attempt:
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -131,9 +134,10 @@ jobs:
             "$CACHE_KEY" "${MATCHED_KEY:-none (cold build)}" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: sbe1v1k-wifi-${{ inputs.wifi }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: sbe1v1k-wifi-${{ inputs.wifi }}-${{ github.run_id }}-${{ inputs.build_attempt }}
           path: artifacts/
           if-no-files-found: error
+          overwrite: true
       - name: Upload failure diagnostics
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

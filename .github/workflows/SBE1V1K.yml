@@ -23,21 +23,17 @@ permissions:
 jobs:
   matrix:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     outputs:
       wifi: ${{ steps.select.outputs.wifi }}
+      build_attempt: ${{ steps.select.outputs.attempt }}
       source_commit: ${{ steps.source.outputs.commit }}
       package_snapshots: ${{ steps.source.outputs.packages }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Resolve latest upstream branch for this run
-        id: source
-        run: |
-          commit=$(python3 Scripts/checkout_source.py --resolve-only)
-          printf 'commit=%s\n' "$commit" >> "$GITHUB_OUTPUT"
-          packages=$(python3 Scripts/resolve_packages.py --manifest Config/packages.json)
-          printf 'packages=%s\n' "$packages" >> "$GITHUB_OUTPUT"
       - id: select
         env:
           WIFI_MODE: ${{ inputs.WIFI_MODE }}
@@ -47,6 +43,26 @@ jobs:
             yes|no) printf 'wifi=["%s"]\n' "$WIFI_MODE" >> "$GITHUB_OUTPUT" ;;
             *) echo 'Unsupported WIFI_MODE' >&2; exit 1 ;;
           esac
+          printf 'attempt=%s\n' "$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+      - name: Anchor release tags to this CI revision
+        if: ${{ !inputs.CONFIG_ONLY && inputs.PUBLISH }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CI_COMMIT: ${{ github.sha }}
+          WIFI_MODES: ${{ steps.select.outputs.wifi }}
+        run: |
+          for wifi in $(jq -r '.[]' <<< "$WIFI_MODES"); do
+            python3 Scripts/release_tag.py --create \
+              --tag "sbe1v1k-wifi-${wifi}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          done
+      - name: Resolve latest upstream branch for this run
+        id: source
+        run: |
+          commit=$(python3 Scripts/checkout_source.py --resolve-only)
+          printf 'commit=%s\n' "$commit" >> "$GITHUB_OUTPUT"
+          packages=$(python3 Scripts/resolve_packages.py --manifest Config/packages.json)
+          printf 'packages=%s\n' "$packages" >> "$GITHUB_OUTPUT"
 
   build:
     needs: matrix
@@ -60,6 +76,7 @@ jobs:
       config_only: ${{ inputs.CONFIG_ONLY }}
       source_snapshot: ${{ needs.matrix.outputs.source_commit }}
       package_snapshots: ${{ needs.matrix.outputs.package_snapshots }}
+      build_attempt: ${{ needs.matrix.outputs.build_attempt }}
 
   release:
     if: ${{ !inputs.CONFIG_ONLY && inputs.PUBLISH }}
@@ -68,12 +85,16 @@ jobs:
     permissions:
       contents: write
     strategy:
+      fail-fast: false
       matrix:
         wifi: ${{ fromJSON(needs.matrix.outputs.wifi) }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: sbe1v1k-wifi-${{ matrix.wifi }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: sbe1v1k-wifi-${{ matrix.wifi }}-${{ github.run_id }}-${{ needs.matrix.outputs.build_attempt }}
           path: artifacts
       - name: Publish verified firmware
         env:
@@ -81,13 +102,15 @@ jobs:
           GH_REPO: ${{ github.repository }}
           WIFI: ${{ matrix.wifi }}
           CI_COMMIT: ${{ github.sha }}
+          BUILD_ATTEMPT: ${{ needs.matrix.outputs.build_attempt }}
         run: |
+          tag="sbe1v1k-wifi-${WIFI}-${GITHUB_RUN_ID}-${BUILD_ATTEMPT}"
+          python3 Scripts/release_tag.py --tag "$tag"
           cd artifacts
           sha256sum -c SHA256SUMS-CI
           source_commit=$(jq -r .commit ci-source.json)
           source_repo=$(jq -r .repository ci-source.json)
           source_branch=$(jq -r .branch ci-source.json)
-          tag="sbe1v1k-wifi-${WIFI}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           cat > "$RUNNER_TEMP/release-notes.md" <<EOF
           SBE1V1K / qualcommbe / ipq95xx / WiFi-${WIFI}
 
@@ -99,6 +122,16 @@ jobs:
           本发布证明编译和产物校验通过，不代表实机验证。
           EOF
           mapfile -d '' assets < <(find . -maxdepth 1 -type f -print0)
-          gh release create "$tag" "${assets[@]}" --target "$CI_COMMIT" \
-            --title "SBE1V1K WiFi-${WIFI} ${GITHUB_RUN_ID}" \
-            --notes-file "$RUNNER_TEMP/release-notes.md"
+          draft=$(gh api --paginate "repos/$GH_REPO/releases" \
+            --jq ".[] | select(.tag_name == \"$tag\") | .draft")
+          case "$draft" in
+            '')
+              gh release create "$tag" --verify-tag --draft \
+                --title "SBE1V1K WiFi-${WIFI} ${GITHUB_RUN_ID}" \
+                --notes-file "$RUNNER_TEMP/release-notes.md"
+              ;;
+            true) echo "Resuming uploads to existing draft $tag" ;;
+            *) echo "Release $tag is already published; refusing to replace it" >&2; exit 1 ;;
+          esac
+          gh release upload "$tag" "${assets[@]}" --clobber
+          gh release edit "$tag" --draft=false
