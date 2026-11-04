@@ -14,7 +14,10 @@ REQUIRED_PACKAGES = {
 }
 WIRELESS_PACKAGES = {"kmod-ath12k", "ath12k-firmware-qcn9274-ddwrt", "ipq-wifi-askey_sbe1v1k"}
 ALL_WIRELESS_PACKAGES = WIRELESS_PACKAGES | {"ath12k-firmware-qcn9274"}
-USB_PACKAGES = {"luci-app-usb-printer", "p910nd", "usbutils", "usb-modeswitch", "usbmuxd", "libimobiledevice"}
+USB_PACKAGES = {
+    "automount", "luci-app-usb-printer", "p910nd", "usbutils",
+    "usb-modeswitch", "usbmuxd", "libimobiledevice"
+}
 IMAGE_SUFFIXES = ("-initramfs-uImage.itb", "-squashfs-sysupgrade.bin", "-squashfs-factory.bin")
 
 

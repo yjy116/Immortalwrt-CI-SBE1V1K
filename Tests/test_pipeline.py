@@ -126,7 +126,7 @@ class ArtifactTests(unittest.TestCase):
 
     def test_rejects_usb_peripherals_in_both_variants(self):
         for wifi in ("yes", "no"):
-            for package in ("kmod-usb3", "kmod-usb-net-rndis", "p910nd"):
+            for package in ("automount", "kmod-usb3", "kmod-usb-net-rndis", "p910nd"):
                 with self.subTest(wifi=wifi, package=package):
                     self.manifest(REQUIRED_PACKAGES | WIRELESS_PACKAGES | {package}
                                   if wifi == "yes" else REQUIRED_PACKAGES | {package})

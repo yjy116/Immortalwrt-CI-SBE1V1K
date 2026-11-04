@@ -1,4 +1,6 @@
 # SBE1V1K has no user-accessible USB port; override the target defaults.
+# automount selects USB storage drivers even when they are explicitly disabled.
+# CONFIG_PACKAGE_automount is not set
 # CONFIG_PACKAGE_luci-app-usb-printer is not set
 # CONFIG_PACKAGE_p910nd is not set
 # CONFIG_PACKAGE_usbutils is not set
