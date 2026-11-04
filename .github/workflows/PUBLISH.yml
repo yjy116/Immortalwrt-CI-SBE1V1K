@@ -1,0 +1,115 @@
+name: Publish existing SBE1V1K build
+
+on:
+  workflow_dispatch:
+    inputs:
+      RUN_ID:
+        description: '已完成固件编译的 Build SBE1V1K 运行 ID'
+        type: string
+        required: true
+      BUILD_ATTEMPT:
+        description: '原 artifact/tag 的 matrix 构建批次；不是发布重跑次数'
+        type: string
+        required: true
+        default: '1'
+      WIFI_MODE:
+        description: '发布版本：both 同时发布 WiFi / 无 WiFi'
+        type: choice
+        options: [both, 'yes', 'no']
+        default: both
+
+permissions:
+  contents: read
+  actions: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  matrix:
+    runs-on: ubuntu-24.04
+    outputs:
+      wifi: ${{ steps.verify.outputs.wifi }}
+      head_sha: ${{ steps.verify.outputs.head_sha }}
+    steps:
+      - name: Verify the original build run
+        id: verify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BUILD_RUN_ID: ${{ inputs.RUN_ID }}
+          BUILD_ATTEMPT: ${{ inputs.BUILD_ATTEMPT }}
+          WIFI_MODE: ${{ inputs.WIFI_MODE }}
+        run: |
+          set -euo pipefail
+          for value in "$BUILD_RUN_ID" "$BUILD_ATTEMPT"; do
+            [[ "$value" =~ ^[1-9][0-9]*$ ]] || {
+              echo '::error::RUN_ID and BUILD_ATTEMPT must be positive integers'
+              exit 1
+            }
+          done
+          case "$WIFI_MODE" in
+            both) wifi_modes='["yes","no"]' ;;
+            yes|no) wifi_modes=$(printf '["%s"]' "$WIFI_MODE") ;;
+            *) echo '::error::Unsupported WIFI_MODE'; exit 1 ;;
+          esac
+          metadata=$(gh api "repos/$GH_REPO/actions/runs/$BUILD_RUN_ID")
+          jq -e '.path == ".github/workflows/SBE1V1K.yml"' <<< "$metadata" >/dev/null || {
+            echo '::error::RUN_ID is not a Build SBE1V1K workflow run'
+            exit 1
+          }
+          head_sha=$(jq -er '.head_sha' <<< "$metadata")
+          [[ "$head_sha" =~ ^[0-9a-f]{40}$ ]] || {
+            echo '::error::The original build has an invalid CI commit SHA'
+            exit 1
+          }
+          # Partial build reruns keep the original matrix batch in artifact/tag names.
+          # Check current job success; the release job must find that exact batch's artifact.
+          jobs=$(gh api --paginate --slurp \
+            "repos/$GH_REPO/actions/runs/$BUILD_RUN_ID/jobs?per_page=100&filter=latest")
+          for wifi in $(jq -r '.[]' <<< "$wifi_modes"); do
+            expected="build (${wifi}) / SBE1V1K WiFi-${wifi}"
+            jq -e --arg expected "$expected" '
+              [.[].jobs[] | select(.name == $expected)] as $jobs |
+              ($jobs | length) == 1 and
+              $jobs[0].status == "completed" and $jobs[0].conclusion == "success"
+            ' <<< "$jobs" >/dev/null || {
+              echo "::error::Expected one successful build job: $expected"
+              exit 1
+            }
+          done
+          printf 'wifi=%s\nhead_sha=%s\n' "$wifi_modes" "$head_sha" >> "$GITHUB_OUTPUT"
+
+  release:
+    needs: matrix
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        wifi: ${{ fromJSON(needs.matrix.outputs.wifi) }}
+    steps:
+      - name: Checkout the current publication scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Download the original verified firmware
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: sbe1v1k-wifi-${{ matrix.wifi }}-${{ inputs.RUN_ID }}-${{ inputs.BUILD_ATTEMPT }}
+          path: artifacts
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.RUN_ID }}
+      - name: Publish with the original CI revision
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CI_COMMIT: ${{ needs.matrix.outputs.head_sha }}
+          WIFI: ${{ matrix.wifi }}
+          BUILD_RUN_ID: ${{ inputs.RUN_ID }}
+          BUILD_ATTEMPT: ${{ inputs.BUILD_ATTEMPT }}
+        run: bash Scripts/publish_release.sh
