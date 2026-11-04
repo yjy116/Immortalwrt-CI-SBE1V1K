@@ -9,9 +9,10 @@ from pathlib import Path
 
 DEVICE = "askey_sbe1v1k"
 REQUIRED_PACKAGES = {
-    "f2fsck", "mkf2fs", "kmod-hwmon-pwmfan", "kmod-phy-realtek", "rtl826x-firmware"
+    "f2fsck", "mkf2fs", "f2fs-tools", "kmod-fs-f2fs", "kmod-qcom-ppe",
+    "kmod-hwmon-pwmfan", "kmod-phy-realtek", "rtl826x-firmware"
 }
-WIRELESS_PACKAGES = {"kmod-ath12k", "ath12k-firmware-qcn9274", "ipq-wifi-askey_sbe1v1k"}
+WIRELESS_PACKAGES = {"kmod-ath12k", "ath12k-firmware-qcn9274-ddwrt", "ipq-wifi-askey_sbe1v1k"}
 IMAGE_SUFFIXES = ("-initramfs-uImage.itb", "-squashfs-sysupgrade.bin", "-squashfs-factory.bin")
 
 

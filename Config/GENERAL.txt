@@ -1,4 +1,4 @@
-# Common packages for ImmortalWrt master / qualcommbe / ipq95xx.
+# Common packages for yjy116/immortalwrt owrt / qualcommbe / ipq95xx.
 # Official feeds are preferred; external sources are pinned in packages.json.
 CONFIG_CCACHE=y
 CONFIG_DEVEL=y

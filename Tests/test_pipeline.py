@@ -50,10 +50,19 @@ class DefaultsTests(unittest.TestCase):
         self.source = Path(self.temporary.name)
         self.generator = self.source / "package/base-files/files/bin/config_generate"
         self.luci = self.source / "feeds/luci/modules/luci-base/root/etc/config/luci"
+        self.wireless = self.source / "package/network/config/wifi-scripts/files/lib/wifi/mac80211.uc"
         self.generator.parent.mkdir(parents=True)
         self.luci.parent.mkdir(parents=True)
-        self.generator.write_text('lan) ipad=${ipaddr:-"192.168.1.1"} ;;\nhostname=\'ImmortalWrt\'\n')
+        self.generator.write_text('lan) ipad=${ipaddr:-"192.168.1.1"} ;;\nhostname=\'OWRT\'\n')
         self.luci.write_text("option mediaurlbase '/luci-static/bootstrap'\n")
+        self.wireless.parent.mkdir(parents=True)
+        self.wireless.write_text("\n".join([
+            "set ${s}.country='${country || 'CN'}'",
+            "set ${si}.ssid='${defaults?.ssid || 'OWRT'}'",
+            "set ${si}.encryption='${defaults?.encryption || 'psk2+ccmp'}'",
+            "set ${si}.key='${defaults?.key || '12345678'}'",
+            "set ${si}.disabled='0'",
+        ]))
 
     def test_changes_only_generation_defaults(self):
         self.assertEqual(LAN_IP, "192.168.70.1")
@@ -62,6 +71,22 @@ class DefaultsTests(unittest.TestCase):
         self.assertIn("hostname='SBE1V1K'", self.generator.read_text())
         self.assertIn("/luci-static/vantage", self.luci.read_text())
         self.assertFalse((self.source / "files/etc/uci-defaults").exists())
+
+    def test_wifi_starts_disabled_without_shared_country_or_password(self):
+        apply_defaults(self.source)
+        wireless = self.wireless.read_text()
+        self.assertIn("set ${si}.disabled='1'", wireless)
+        self.assertIn("${defaults?.encryption || encryption}", wireless)
+        self.assertNotIn("12345678", wireless)
+        self.assertNotIn("'CN'", wireless)
+
+    def test_wireless_drift_preserves_all_original_files(self):
+        generator, luci = self.generator.read_text(), self.luci.read_text()
+        self.wireless.write_text("changed upstream\n")
+        with self.assertRaisesRegex(ValueError, "Expected one upstream"):
+            apply_defaults(self.source)
+        self.assertEqual(self.generator.read_text(), generator)
+        self.assertEqual(self.luci.read_text(), luci)
 
     def test_upstream_drift_fails_before_any_file_change(self):
         original = self.generator.read_text()
@@ -118,6 +143,13 @@ class ArtifactTests(unittest.TestCase):
     def test_rejects_missing_phy_firmware(self):
         self.manifest((REQUIRED_PACKAGES | WIRELESS_PACKAGES) - {"rtl826x-firmware"})
         with self.assertRaisesRegex(ValueError, "Missing device packages"):
+            verify_images(self.target, "yes")
+
+    def test_rejects_vanilla_firmware_instead_of_owrt_firmware(self):
+        packages = REQUIRED_PACKAGES | WIRELESS_PACKAGES
+        packages = (packages - {"ath12k-firmware-qcn9274-ddwrt"}) | {"ath12k-firmware-qcn9274"}
+        self.manifest(packages)
+        with self.assertRaisesRegex(ValueError, "ath12k-firmware-qcn9274-ddwrt"):
             verify_images(self.target, "yes")
 
 

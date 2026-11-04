@@ -1,7 +1,7 @@
 {
-  "repository": "https://github.com/immortalwrt/immortalwrt.git",
-  "branch": "master",
-  "revision": "89f1ef18c888f841633f19f92655ee4b7f7716a4",
+  "repository": "https://github.com/yjy116/immortalwrt.git",
+  "branch": "owrt",
+  "revision": "a8d4a44c8ede4c703e8866fbf709b34dd1506294",
   "target": "qualcommbe",
   "subtarget": "ipq95xx",
   "device": "askey_sbe1v1k"
