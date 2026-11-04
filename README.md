@@ -36,7 +36,7 @@
 
 `CHECK.yml` 在 push / pull request 时执行仓库静态验证。配置检查、完整固件编译和实机测试是不同验证阶段；不能互相替代。
 
-本仓库曾使用官方 `master`，现已按用户要求改为 `yjy116/immortalwrt:owrt`；此前官方源的配置验证不能视为新源验证。完整固件是否成功请以相应 Actions / Release 为准；尚无实机验证记录。
+2026-11-04 验证：`yjy116/immortalwrt:owrt` 的 [WiFi / 无 WiFi 配置展开](https://github.com/yjy116/Immortalwrt-CI-SBE1V1K/actions/runs/41751334557)和 [30 项 Linux 测试及工作流检查](https://github.com/yjy116/Immortalwrt-CI-SBE1V1K/actions/runs/41751448858)均通过。配置产物中的源码 URL、`owrt` 分支、提交和 SHA256 已独立复核。完整固件是否成功请以相应 Actions / Release 为准；尚无实机验证记录。
 
 ## 下载文件
 

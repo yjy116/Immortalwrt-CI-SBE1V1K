@@ -76,11 +76,14 @@ jobs:
           cd artifacts
           sha256sum -c SHA256SUMS-CI
           source_commit=$(jq -r .commit ci-source.json)
+          source_repo=$(jq -r .repository ci-source.json)
+          source_branch=$(jq -r .branch ci-source.json)
           tag="sbe1v1k-wifi-${WIFI}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           cat > "$RUNNER_TEMP/release-notes.md" <<EOF
           SBE1V1K / qualcommbe / ipq95xx / WiFi-${WIFI}
 
           管理地址：192.168.70.1；首次登录请设置 root 密码。
+          源码：${source_repo}（${source_branch}）。
           源码提交：${source_commit}；CI 提交：${CI_COMMIT}。
           无线版本初始不启用广播，启用前请设置实际国家和加密口令。
           factory.bin 不是原厂 Web 直刷包；请阅读仓库 docs/DEVICE.md。
