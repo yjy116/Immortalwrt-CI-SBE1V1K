@@ -14,6 +14,7 @@ REQUIRED_PACKAGES = {
 }
 WIRELESS_PACKAGES = {"kmod-ath12k", "ath12k-firmware-qcn9274-ddwrt", "ipq-wifi-askey_sbe1v1k"}
 ALL_WIRELESS_PACKAGES = WIRELESS_PACKAGES | {"ath12k-firmware-qcn9274"}
+USB_PACKAGES = {"luci-app-usb-printer", "p910nd", "usbutils", "usb-modeswitch", "usbmuxd", "libimobiledevice"}
 IMAGE_SUFFIXES = ("-initramfs-uImage.itb", "-squashfs-sysupgrade.bin", "-squashfs-factory.bin")
 
 
@@ -25,6 +26,10 @@ def verify_manifest(path, wifi):
         raise ValueError(f"Missing device packages in {path.name}: {sorted(missing)}")
     if wifi == "no" and packages & ALL_WIRELESS_PACKAGES:
         raise ValueError(f"Wireless packages remain: {sorted(packages & ALL_WIRELESS_PACKAGES)}")
+    usb = {name for name in packages if name.startswith("kmod-usb-") or name == "kmod-usb3"}
+    usb |= packages & USB_PACKAGES
+    if usb:
+        raise ValueError(f"USB peripheral packages remain: {sorted(usb)}")
 
 
 def verify_images(target, wifi):
@@ -54,6 +59,8 @@ def collect(args):
     records = [".config", "ci-source.json", "ci-feeds.json", "ci-packages.json", "ci-diffconfig.txt"]
     for name in records:
         shutil.copy2(args.source / name, args.output / ("config.txt" if name == ".config" else name))
+    for name in ("backend-components.json", "package-integration.json"):
+        shutil.copy2(args.source / "ci-build" / name, args.output / f"ci-{name}")
     if not args.config_only:
         target = args.source / "bin/targets/qualcommbe/ipq95xx"
         verify_images(target, args.wifi)

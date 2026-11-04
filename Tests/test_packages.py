@@ -9,6 +9,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "Scripts" / "prepare_packages.py"
+RESOLVER = ROOT / "Scripts" / "resolve_packages.py"
 TIMEOUT_SECONDS = 30
 WINDOWS_PRIVILEGE_NOT_HELD = 1314
 
@@ -32,7 +33,7 @@ class PackageInstallerTests(unittest.TestCase):
         (self.source / "package/feeds/luci").mkdir(parents=True)
         self.repo = self.root / "upstream"
         self.repo.mkdir()
-        git(self.repo, "init", "-q")
+        git(self.repo, "init", "-q", "--initial-branch=main")
         git(self.repo, "config", "user.name", "Package Fixture")
         git(self.repo, "config", "user.email", "fixture@example.invalid")
         self.write(self.repo / "luci-app-demo/Makefile", "# pinned package\n")
@@ -41,11 +42,12 @@ class PackageInstallerTests(unittest.TestCase):
         self.commit = self.commit_repository("initial package")
         self.manifest = self.root / "manifest.json"
         self.output = self.root / "metadata.json"
+        self.snapshots = None
         self.definition = {
-            "schema": 1,
+            "schema": 2,
             "sources": [{
                 "name": "demo", "url": self.repo.as_uri(),
-                "commit": self.commit,
+                "branch": "main",
                 "packages": [{"name": "luci-app-demo", "path": "luci-app-demo"}],
                 "files": ["version.mk"],
             }],
@@ -62,9 +64,14 @@ class PackageInstallerTests(unittest.TestCase):
 
     def run_installer(self):
         self.manifest.write_text(json.dumps(self.definition), encoding="utf-8")
+        arguments = ["--source", str(self.source), "--manifest", str(self.manifest),
+                     "--output", str(self.output)]
+        if self.snapshots is not None:
+            snapshots = self.root / "snapshots.json"
+            snapshots.write_text(json.dumps(self.snapshots), encoding="utf-8")
+            arguments.extend(["--snapshots", str(snapshots)])
         return subprocess.run(
-            [sys.executable, str(SCRIPT), "--source", str(self.source),
-             "--manifest", str(self.manifest), "--output", str(self.output)],
+            [sys.executable, str(SCRIPT), *arguments],
             capture_output=True, text=True, timeout=TIMEOUT_SECONDS,
         )
 
@@ -80,6 +87,7 @@ class PackageInstallerTests(unittest.TestCase):
         self.assertFalse((self.source / "package/custom-ci/demo").exists())
 
     def test_fetches_exact_commit_not_new_head_and_records_provenance(self):
+        self.snapshots = {"demo": self.commit}
         self.write(self.repo / "luci-app-demo/version", "second\n")
         self.commit_repository("later revision")
         result = self.run_installer()
@@ -121,8 +129,8 @@ class PackageInstallerTests(unittest.TestCase):
         self.assert_failed_without_installation(self.run_installer())
         self.assertTrue(original.is_dir())
 
-    def test_rejects_branch_in_place_of_commit(self):
-        self.definition["sources"][0]["commit"] = "main"
+    def test_rejects_invalid_branch_ref(self):
+        self.definition["sources"][0]["branch"] = "main/../escape"
         self.assert_failed_without_installation(self.run_installer())
 
     def test_rejects_duplicate_package_provider(self):
@@ -132,7 +140,7 @@ class PackageInstallerTests(unittest.TestCase):
 
     def test_fetch_failure_does_not_remove_existing_provider(self):
         original = self.provider()
-        self.definition["sources"][0]["commit"] = "0" * 40
+        self.snapshots = {"demo": "0" * 40}
         self.assert_failed_without_installation(self.run_installer())
         self.assertTrue(original.is_dir())
 
@@ -172,6 +180,66 @@ class PackageInstallerTests(unittest.TestCase):
         result = self.run_installer()
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self.output.read_text(), "# fixture\n")
+
+    def test_default_resolution_follows_new_branch_head(self):
+        self.write(self.repo / "luci-app-demo/version", "second\n")
+        latest = self.commit_repository("advance branch")
+        result = self.run_installer()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        provenance = json.loads(self.output.read_text())
+        self.assertEqual(provenance["sources"][0]["branch"], "main")
+        self.assertEqual(provenance["sources"][0]["commit"], latest)
+
+    def test_resolver_emits_exact_source_name_to_commit_mapping(self):
+        self.manifest.write_text(json.dumps(self.definition), encoding="utf-8")
+        result = subprocess.run(
+            [sys.executable, str(RESOLVER), "--manifest", str(self.manifest)],
+            capture_output=True, text=True, timeout=TIMEOUT_SECONDS,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout), {"demo": self.commit})
+
+    def test_two_build_trees_share_snapshot_after_branch_advances(self):
+        self.snapshots = {"demo": self.commit}
+        for name in ["wifi", "wired"]:
+            self.source = self.root / name
+            for marker in ["Makefile", "include/package.mk", "feeds/luci/luci.mk"]:
+                self.write(self.source / marker, "# fixture\n")
+            (self.source / "package/feeds/luci").mkdir(parents=True)
+            self.output = self.root / f"{name}.json"
+            result = self.run_installer()
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(self.output.read_text())["sources"][0]["commit"], self.commit)
+            if name == "wifi":
+                self.write(self.repo / "luci-app-demo/version", "branch advanced\n")
+                self.commit_repository("update between matrix builds")
+
+    def test_incomplete_snapshot_fails_before_feed_removal(self):
+        original = self.provider()
+        self.snapshots = {}
+        self.assert_failed_without_installation(self.run_installer())
+        self.assertTrue(original.is_dir())
+
+    def test_repository_layout_keeps_shared_ci_and_excludes_git(self):
+        self.write(self.repo / "ci/pins.env", "UPSTREAM=example\n")
+        self.commit_repository("shared source provenance")
+        self.definition["sources"][0]["layout"] = "repository"
+        result = self.run_installer()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        destination = self.source / "package/custom-ci/demo"
+        self.assertEqual((destination / "ci/pins.env").read_text(), "UPSTREAM=example\n")
+        self.assertTrue((destination / "luci-app-demo/Makefile").is_file())
+        self.assertFalse((destination / ".git").exists())
+
+    def test_package_can_be_at_repository_root(self):
+        self.write(self.repo / "Makefile", "# root package\n")
+        self.commit_repository("root package layout")
+        self.definition["sources"][0]["packages"][0]["path"] = "."
+        result = self.run_installer()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        destination = self.source / "package/custom-ci/demo/luci-app-demo"
+        self.assertEqual((destination / "Makefile").read_text(), "# root package\n")
+        self.assertFalse((destination / ".git").exists())
 
 
 if __name__ == "__main__":

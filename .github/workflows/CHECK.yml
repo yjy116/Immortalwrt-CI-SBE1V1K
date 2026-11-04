@@ -20,6 +20,7 @@ jobs:
       - name: Check shell syntax
         run: |
           bash -n Scripts/setup_runner.sh
+          for script in Tests/*.sh files/etc/uci-defaults/*; do bash -n "$script"; done
       - name: Validate workflow syntax
         run: |
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7

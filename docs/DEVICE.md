@@ -30,6 +30,9 @@ VIKINGYFY 的 `owrt` 与 `main` 均包含 SBE1V1K，但无线固件、target 默
 | LAN | `lan1`：2.5GbE，QCA8081；`lan2`、`lan3`：1GbE，QCA8075 |
 | 无线 | 2.4 / 5 / 6 GHz，ath12k / QCN9274 固件与 WSI 多射频支持 |
 | 散热 | PWM 风扇与设备树温控策略 |
+| USB | 无外露 USB 接口 |
+
+[OpenWrt 首次支持提交](https://github.com/openwrt/openwrt/commit/31c49dd07660a8c9a3b8a34f6fb66ec37244c948)明确列出 USB ports 为 none。[Askey RTQ7300T 官方规格](https://www.askey.com/products-detail/349/)和 [Spectrum WiFi 7 手册](https://d15yx0mnc9teae.cloudfront.net/sites/default/files/2024-10/WiFi%207%20User%20Guide%20v13.pdf)列出的接口为以太网、电源和复位。未据此推断板上不存在测试焊盘；本仓库按可用外部接口去除 USB 外设包，并在最终固件 manifest 中检查没有残留 USB 驱动或打印服务。
 
 原生 LAN bridge 包含 `lan1 lan2 lan3`。设备树负责网口、MAC、PCIe、风扇等硬件描述；板级校准脚本从本机 `0:ART` 读取射频校准数据。构建仓库保留这些实现，不替换设备校准数据，不采用 CR1000A 的 ath11k、Q6、NAND 或网口修补。
 

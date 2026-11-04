@@ -15,7 +15,11 @@
 
 源码地址和分支记录在 [Config/source.json](Config/source.json)，不固定主源码提交。你同步 `yjy116/immortalwrt:owrt` 后，下一次运行会使用更新后的分支。一次运行先解析最新提交，再让 WiFi / 无 WiFi 两个任务使用该次解析的同一源码版本，避免构建期间分支更新造成版本不一致；实际 SHA 写入产物供追溯。
 
-默认配置包括 HomeProxy、PassWall、OpenClash、Nikki、AdGuard Home、DDNS-Go、Lucky、Tailscale、EasyTier、SQM、UPnP、ttyd、Samba4、WireGuard 和 ZeroTier。软件包优先采用官方 feeds，外部补充仅涉及 Vantage、Nikki、EasyTier 和 Lucky。Aurora、DAE / Honk 未移植。
+常用插件及来源已按参考仓库对齐，包括 HomeProxy、PassWall、OpenClash、Nikki、DAE / DAED、Honk / Doona、qBittorrent、AdGuard Home、DDNS-Go、Lucky、Tailscale、EasyTier、NATMapT、SQM、UPnP、ttyd、Samba4、WireGuard、ZeroTier、磁盘管理、WOLUltra 和流量统计；主题包括 Vantage、Aurora 和 Footstrap。具体来源与分支见 [插件说明](docs/PLUGINS.md)。
+
+SBE1V1K 没有外露 USB 接口，两种版本都排除 USB 打印、存储、网卡及调制解调器相关包。保留服务于板载 eMMC 的磁盘和文件系统工具；依据见 [设备说明](docs/DEVICE.md)。
+
+Honk 保留上游的启动、停止、重启操作。停止会保存关闭状态，正常设备启动不会擅自开启；主动点击启动或重启允许开启服务。Doona 由同一 Honk 服务提供。首次使用仍需完成上游要求的初始化。
 
 ## 开始编译
 
@@ -37,7 +41,7 @@
 
 `CHECK.yml` 在 push / pull request 时执行仓库静态验证。配置检查、完整固件编译和实机测试是不同验证阶段；不能互相替代。
 
-2026-11-04 验证：`yjy116/immortalwrt:owrt` 的 [WiFi / 无 WiFi 配置展开](https://github.com/yjy116/Immortalwrt-CI-SBE1V1K/actions/runs/41751334557)和 [30 项 Linux 测试及工作流检查](https://github.com/yjy116/Immortalwrt-CI-SBE1V1K/actions/runs/41751448858)均通过。配置产物中的源码 URL、`owrt` 分支、提交和 SHA256 已独立复核。完整固件是否成功请以相应 Actions / Release 为准；尚无实机验证记录。
+2026-11-04：此前精简插件配置已通过 [WiFi / 无 WiFi 配置展开](https://github.com/yjy116/Immortalwrt-CI-SBE1V1K/actions/runs/41752732682)。本次扩充插件后的验证与完整固件结果以对应提交的 Actions / Release 为准，旧配置结果不能代替新配置验收；尚无实机验证记录。
 
 ## 下载文件
 
@@ -57,7 +61,7 @@
 
 本地检查：`python3 -m unittest discover -s Tests -v`。Linux CI 对测试设置 60 秒超时，并运行 shell 语法检查与 actionlint。每个显式配置选项均会在 `make defconfig` 后核对，缺包会使任务失败。
 
-主源码跟随 `owrt`，官方 feeds 按源码提供的分支更新，实际 SHA 均记录到产物中。CI 读取源码 fork，由你负责同步 fork；同步后无需修改本仓库的提交配置。外部插件版本独立记录在 `Config/packages.json`。EasyTier 与 Lucky 沿用其上游二进制下载配方，其中并非所有下载都有固定内容哈希；这里不宣称完全可复现构建。
+主源码跟随 `owrt`，官方 feeds 按源码提供的分支更新，实际 SHA 均记录到产物中。CI 读取源码 fork，由你负责同步 fork；同步后无需修改本仓库的提交配置。`Config/packages.json` 只指定外部插件仓库与分支，不固定其提交。每次新运行解析各插件最新提交，两种版本共享当次解析结果；实际 SHA 保存到 `ci-packages.json`。DAE / DAED、Honk / Doona 的组件版本和校验值沿用当次插件分支的配方，详见 `ci-backend-components.json`；这不表示绕过配方独立追逐内核/UI 开发分支。部分二进制下载配方并无固定内容哈希，因此不宣称完全可复现构建。
 
 只安装选中插件及其递归依赖，外部包的官方 feed / host 依赖列在 `Config/packages.json` 的 `feed_dependencies` 中。不安装无关的软件包集合；Kconfig 输出错误时，即使命令返回零也会使配置验证失败。
 

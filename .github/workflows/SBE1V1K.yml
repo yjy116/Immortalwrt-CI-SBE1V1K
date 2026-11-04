@@ -26,6 +26,7 @@ jobs:
     outputs:
       wifi: ${{ steps.select.outputs.wifi }}
       source_commit: ${{ steps.source.outputs.commit }}
+      package_snapshots: ${{ steps.source.outputs.packages }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -35,6 +36,8 @@ jobs:
         run: |
           commit=$(python3 Scripts/checkout_source.py --resolve-only)
           printf 'commit=%s\n' "$commit" >> "$GITHUB_OUTPUT"
+          packages=$(python3 Scripts/resolve_packages.py --manifest Config/packages.json)
+          printf 'packages=%s\n' "$packages" >> "$GITHUB_OUTPUT"
       - id: select
         env:
           WIFI_MODE: ${{ inputs.WIFI_MODE }}
@@ -56,6 +59,7 @@ jobs:
       wifi: ${{ matrix.wifi }}
       config_only: ${{ inputs.CONFIG_ONLY }}
       source_snapshot: ${{ needs.matrix.outputs.source_commit }}
+      package_snapshots: ${{ needs.matrix.outputs.package_snapshots }}
 
   release:
     if: ${{ !inputs.CONFIG_ONLY && inputs.PUBLISH }}

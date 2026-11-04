@@ -1,0 +1,42 @@
+#!/bin/sh
+set -eu
+
+ROOT=${IPKG_INSTROOT:-}
+CRON="$ROOT/etc/crontabs/root"
+BACKUP="$ROOT/etc/daede-migration-backup"
+OLD_UPDATE=/etc/daed/daed_sub.sh
+NEW_UPDATE=/usr/share/luci-app-daede/daed-sub-update.sh
+
+migrate_cron() {
+  [ -f "$CRON" ] || return 0
+  grep -Fq "$OLD_UPDATE" "$CRON" || return 0
+  umask 077
+  mkdir -p "$BACKUP"
+  chmod 700 "$BACKUP"
+  [ -f "$BACKUP/root.cron" ] || cp -p "$CRON" "$BACKUP/root.cron"
+  sed "s|/etc/daed/daed_sub\.sh|$NEW_UPDATE|g" "$CRON" > "$CRON.daede-new"
+  chmod 600 "$CRON.daede-new"
+  mv "$CRON.daede-new" "$CRON"
+  logger -t daede-migration 'Subscription schedule retained; enter dashboard credentials in daede before using automatic updates.'
+}
+
+select_existing_backend() {
+  local dae_enabled daed_enabled
+  dae_enabled=$(uci -c "$ROOT/etc/config" -q get dae.config.enabled || true)
+  daed_enabled=$(uci -c "$ROOT/etc/config" -q get daed.config.enabled || true)
+  if [ "$dae_enabled" = 1 ] && [ "$daed_enabled" != 1 ]; then
+    uci -c "$ROOT/etc/config" set daede.config=daede
+    uci -c "$ROOT/etc/config" set daede.config.active_backend=dae
+    uci -c "$ROOT/etc/config" commit daede
+  fi
+}
+
+migrate_cron
+select_existing_backend
+# Obsolete helpers must not alter DNS or restart a backend outside daede.
+for link in "$ROOT"/etc/rc.d/*luci_daed; do
+  [ ! -L "$link" ] || rm "$link"
+done
+rm -f "$ROOT/etc/init.d/luci_daed" "$ROOT/etc/hotplug.d/iface/98-daed" \
+  "$ROOT/etc/hotplug.d/iface/98-dae"
+exit 0

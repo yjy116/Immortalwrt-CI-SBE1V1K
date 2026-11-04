@@ -1,0 +1,199 @@
+diff --git a/dae/Makefile b/dae/Makefile
+index f92c4c5..123f063 100644
+--- a/dae/Makefile
++++ b/dae/Makefile
+@@ -30,11 +30,11 @@ PKG_BUILD_FLAGS:=no-mips16
+ ifeq ($(ARCH),arm)
+ PATCH_DIR:=$(CURDIR)/patches_arm
+ endif
+ 
+ GO_PKG:=github.com/daeuniverse/dae
+-GO_PKG_EXCLUDES:=control/kern/tests
++GO_PKG_BUILD_PKG:=$(GO_PKG)
+ GO_PKG_LDFLAGS:= \
+ 	-s -w -buildid= \
+ 	-linkmode external -extldflags '-static -Wl,-s'
+ GO_PKG_LDFLAGS_X:= \
+ 	$(GO_PKG)/cmd.Version=$(PKG_VERSION) \
+diff --git a/dae/files/dae.init b/dae/files/dae.init
+index 394897e..1557dff 100644
+--- a/dae/files/dae.init
++++ b/dae/files/dae.init
+@@ -15,10 +15,19 @@ start_service() {
+ 
+ 	local enabled
+ 	config_get_bool enabled "config" "enabled" "0"
+ 	[ "$enabled" -eq "1" ] || return 1
+ 
++	# Both backends share eBPF attachments; selection also applies at boot/CLI.
++	local active_backend
++	active_backend="$(uci -q get daede.config.active_backend)"
++	if [ "$active_backend" != "$CONF" ] || pidof daed >/dev/null 2>&1; then
++		logger -t dae-init 'Start refused: select dae and stop daed first.'
++		echo 'Start refused: select dae and stop daed first.' >&2
++		return 1
++	fi
++
+ 	local config_file
+ 	config_get config_file "config" "config_file" "/etc/dae/config.dae"
+ 
+ 	DAE_LOCATION_ASSET="/usr/share/v2ray" "$PROG" validate -c "$config_file" || return 1
+ 
+diff --git a/daed/Makefile b/daed/Makefile
+index 9122e11..3a6ab0f 100644
+--- a/daed/Makefile
++++ b/daed/Makefile
+@@ -30,10 +30,11 @@ PKG_BUILD_FLAGS:=no-mips16
+ ifeq ($(ARCH),arm)
+ PATCH_DIR:=$(CURDIR)/patches_arm
+ endif
+ 
+ GO_PKG:=github.com/daeuniverse/dae-wing
++GO_PKG_BUILD_PKG:=$(GO_PKG)
+ 
+ GO_PKG_LDFLAGS:= \
+ 	-s -w -buildid= \
+ 	-linkmode external -extldflags '-static -Wl,-s' \
+ 	-X '$(GO_PKG)/db.AppDescription=$(PKG_NAME) is a integration solution of dae, API and UI.'
+diff --git a/daed/files/daed.init b/daed/files/daed.init
+index 9277774..8e16fc2 100644
+--- a/daed/files/daed.init
++++ b/daed/files/daed.init
+@@ -25,10 +25,19 @@ start_service() {
+ 	if [ "$enabled" -ne "1" ]; then
+ 		log "start: config disabled, exit"
+ 		return 1
+ 	fi
+ 
++	# Both backends share eBPF attachments; selection also applies at boot/CLI.
++	local active_backend
++	active_backend="$(uci -q get daede.config.active_backend)"
++	if [ "$active_backend" != "$CONF" ] || pidof dae >/dev/null 2>&1; then
++		log 'Start refused: select daed and stop dae first.'
++		echo 'Start refused: select daed and stop dae first.' >&2
++		return 1
++	fi
++
+ 	local listen_addr log_maxbackups log_maxsize
+ 	config_get listen_addr "config" "listen_addr" "0.0.0.0:2023"
+ 	config_get log_maxbackups "config" "log_maxbackups" "1"
+ 	config_get log_maxsize "config" "log_maxsize" "5"
+ 
+diff --git a/luci-app-daede/Makefile b/luci-app-daede/Makefile
+index 6514a54..e4108a6 100644
+--- a/luci-app-daede/Makefile
++++ b/luci-app-daede/Makefile
+@@ -7,10 +7,11 @@ include $(TOPDIR)/rules.mk
+ PKG_NAME:=luci-app-daede
+ PKG_VERSION:=1.15
+ PKG_RELEASE:=13
+ PKG_MAINTAINER:=kenzok8
+ PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)
++PKG_BUILD_DEPENDS:=luci-base/host
+ 
+ include $(INCLUDE_DIR)/package.mk
+ 
+ define Package/$(PKG_NAME)/config
+ 	choice
+@@ -59,10 +60,11 @@ endef
+ define Package/$(PKG_NAME)/install
+ 	$(INSTALL_DIR) $(1)/etc/config
+ 	$(INSTALL_DATA) ./root/etc/config/daede $(1)/etc/config/daede
+ 
+ 	$(INSTALL_DIR) $(1)/etc/uci-defaults
++	$(INSTALL_BIN) ./root/etc/uci-defaults/89-daede-migrate $(1)/etc/uci-defaults/89-daede-migrate
+ 	$(INSTALL_BIN) ./root/etc/uci-defaults/90-luci-app-daede-init $(1)/etc/uci-defaults/90-luci-app-daede-init
+ 
+ 	$(INSTALL_DIR) $(1)/usr/share/luci/menu.d
+ 	$(INSTALL_DATA) ./root/usr/share/luci/menu.d/luci-app-daede.json $(1)/usr/share/luci/menu.d/luci-app-daede.json
+ 
+diff --git a/luci-app-daede/htdocs/luci-static/resources/view/daede/backend.js b/luci-app-daede/htdocs/luci-static/resources/view/daede/backend.js
+index f141f74..4715fb0 100644
+--- a/luci-app-daede/htdocs/luci-static/resources/view/daede/backend.js
++++ b/luci-app-daede/htdocs/luci-static/resources/view/daede/backend.js
+@@ -37,12 +37,15 @@ const BACKENDS = {
+ 		useNetns: false
+ 	}
+ };
+ 
+ function execOk(cmd, args) {
+-	return L.resolveDefault(fs.exec(cmd, args || []), { code: 1 }).then(function(res) {
+-		return res && res.code === 0;
++	return fs.exec(cmd, args || []).then(function(res) {
++		// pidof returns 1 for no process; transport/command failures are not OFF.
++		if (!res || (res.code !== 0 && res.code !== 1))
++			throw new Error(res && (res.stderr || res.stdout) || 'Process status failed');
++		return res.code === 0;
+ 	});
+ }
+ 
+ function exists(path) {
+ 	return L.resolveDefault(fs.stat(path), null).then(function(st) {
+@@ -90,20 +93,46 @@ function loadActiveBackend() {
+ 		const active = uci.get('daede', 'config', 'active_backend');
+ 		return BACKENDS[active] ? active : '';
+ 	});
+ }
+ 
++function execChecked(cmd, args) {
++	return fs.exec(cmd, args).then(function(res) {
++		if (!res || res.code !== 0)
++			throw new Error(res && (res.stderr || res.stdout) || 'Command failed: ' + cmd);
++		return res;
++	});
++}
++
++function disableBackend(name) {
++	return execChecked('/sbin/uci', ['set', name + '.config.enabled=0'])
++		.then(function() { return execChecked('/sbin/uci', ['commit', name]); })
++		.then(function() { return execChecked(BACKENDS[name].initd, ['disable']); });
++}
++
+ function setActiveBackend(name) {
+ 	if (!BACKENDS[name])
+ 		return Promise.reject(new Error('invalid backend: ' + name));
+ 
+-	return exists('/etc/config/daede').then(function(ok) {
++	return detectRunning().then(function(running) {
++		if (running.dae || running.daed)
++			throw new Error('Stop both backends before switching.');
++		return detectInstalledBackends();
++	}).then(function(installed) {
++		if (!installed[name])
++			throw new Error('Backend is not installed: ' + name);
++		// Persist OFF for both, including stopped services still enabled at boot.
++		return ['dae', 'daed'].filter(function(key) { return installed[key]; })
++			.reduce(function(chain, key) {
++				return chain.then(function() { return disableBackend(key); });
++			}, Promise.resolve());
++	}).then(function() { return exists('/etc/config/daede'); }).then(function(ok) {
+ 		if (!ok)
+ 			return fs.write('/etc/config/daede', '');
+-	}).then(function() { return fs.exec('/sbin/uci', ['set', 'daede.config=daede']); })
+-		.then(function() { return fs.exec('/sbin/uci', ['set', 'daede.config.active_backend=' + name]); })
+-		.then(function() { return fs.exec('/sbin/uci', ['commit', 'daede']); })
++	}).then(function() { return execChecked('/sbin/uci', ['set', 'daede.config=daede']); })
++		.then(function() { return execChecked('/sbin/uci', ['set', 'daede.config.active_backend=' + name]); })
++		.then(function() { return execChecked('/sbin/uci', ['commit', 'daede']); })
+ 		.then(function() { uci.set('daede', 'config', 'active_backend', name); });
+ }
+ 
+ function detectBackend() {
+ 	return Promise.all([
+diff --git a/luci-app-daede/htdocs/luci-static/resources/view/daede/widgets.js b/luci-app-daede/htdocs/luci-static/resources/view/daede/widgets.js
+index 843fcba..1ef130d 100644
+--- a/luci-app-daede/htdocs/luci-static/resources/view/daede/widgets.js
++++ b/luci-app-daede/htdocs/luci-static/resources/view/daede/widgets.js
+@@ -139,11 +139,11 @@ function renderBackendSwitcher(ctx, onSwitched, initialHint) {
+ 					return onSwitched ? onSwitched(name, message) : null;
+ 				})
+ 				.catch(function(e) {
+ 					busy = false;
+ 					Array.prototype.forEach.call(segment.querySelectorAll('button'), function(b) { b.disabled = false; });
+-					showHint(_('Switch failed.'));
++					showHint(_('Switch failed.') + ' ' + (e.message || e));
+ 				});
+ 		});
+ 		segment.appendChild(btn);
+ 	});
+ 

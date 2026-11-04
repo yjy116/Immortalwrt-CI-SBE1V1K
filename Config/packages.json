@@ -1,47 +1,367 @@
 {
-  "schema": 1,
+  "schema": 2,
   "feed_dependencies": [
-    "csstidy", "curl", "golang", "luci-base", "luci-compat",
-    "luci-lib-ip", "luci-lib-jsonc", "luci-lib-nixio",
-    "luci-lua-runtime", "luasrcdiet", "yq"
+    "bash",
+    "bc",
+    "boost",
+    "boost-program_options",
+    "btrfs-progs",
+    "cgi-io",
+    "chinadns-ng",
+    "coreutils",
+    "coreutils-base64",
+    "coreutils-nohup",
+    "coreutils-sha256sum",
+    "coreutils-stat",
+    "coreutils-timeout",
+    "csstidy",
+    "curl",
+    "dns2socks",
+    "etherwake",
+    "geoview",
+    "golang",
+    "haproxy",
+    "ipt2socks",
+    "krb5-libs",
+    "libcap-ng",
+    "liburing",
+    "luci-base",
+    "luci-compat",
+    "luci-lib-ip",
+    "luci-lib-jsonc",
+    "luci-lib-nixio",
+    "luci-lua-runtime",
+    "luasrcdiet",
+    "lyaml",
+    "microsocks",
+    "parted",
+    "ruby",
+    "ruby-yaml",
+    "smartdns",
+    "sqlite3-cli",
+    "tailscale",
+    "tcping",
+    "unzip",
+    "v2ray-geoip",
+    "v2ray-geosite",
+    "xray-core",
+    "yq"
   ],
   "sources": [
     {
+      "name": "viking",
+      "url": "https://github.com/VIKINGYFY/packages.git",
+      "branch": "main",
+      "packages": [
+        {
+          "name": "gecoosac",
+          "path": "gecoosac"
+        },
+        {
+          "name": "luci-app-gecoosac",
+          "path": "luci-app-gecoosac"
+        },
+        {
+          "name": "sing-box",
+          "path": "sing-box"
+        },
+        {
+          "name": "luci-app-homeproxy",
+          "path": "luci-app-homeproxy"
+        },
+        {
+          "name": "miniupnpd",
+          "path": "miniupnpd"
+        },
+        {
+          "name": "luci-app-upnp",
+          "path": "luci-app-upnp"
+        },
+        {
+          "name": "luci-app-wolultra",
+          "path": "luci-app-wolultra"
+        }
+      ]
+    },
+    {
       "name": "vantage",
       "url": "https://github.com/anothaDev/luci-theme-vantage.git",
-      "commit": "cddbfb262b7a67a0d3762039e4af66fc0ac92000",
+      "branch": "main",
       "packages": [
-        {"name": "luci-theme-vantage", "path": "luci-theme-vantage"},
-        {"name": "luci-app-vantage", "path": "luci-app-vantage"}
+        {
+          "name": "luci-theme-vantage",
+          "path": "luci-theme-vantage"
+        },
+        {
+          "name": "luci-app-vantage",
+          "path": "luci-app-vantage"
+        }
+      ]
+    },
+    {
+      "name": "aurora",
+      "url": "https://github.com/eamonxg/luci-theme-aurora.git",
+      "branch": "master",
+      "packages": [
+        {
+          "name": "luci-theme-aurora",
+          "path": "."
+        }
+      ]
+    },
+    {
+      "name": "aurora-config",
+      "url": "https://github.com/eamonxg/luci-app-aurora-config.git",
+      "branch": "master",
+      "packages": [
+        {
+          "name": "luci-app-aurora-config",
+          "path": "."
+        }
+      ]
+    },
+    {
+      "name": "footstrap",
+      "url": "https://github.com/VizzleTF/luci-theme-footstrap.git",
+      "branch": "main",
+      "packages": [
+        {
+          "name": "luci-theme-footstrap",
+          "path": "luci-theme-footstrap"
+        }
       ]
     },
     {
       "name": "nikki",
       "url": "https://github.com/nikkinikki-org/OpenWrt-nikki.git",
-      "commit": "78e1a751d55ed0762811f054ee699049473da7b8",
+      "branch": "main",
       "packages": [
-        {"name": "luci-app-nikki", "path": "luci-app-nikki"},
-        {"name": "nikki", "path": "nikki"},
-        {"name": "mihomo-meta", "path": "mihomo-meta"}
+        {
+          "name": "luci-app-nikki",
+          "path": "luci-app-nikki"
+        },
+        {
+          "name": "nikki",
+          "path": "nikki"
+        },
+        {
+          "name": "mihomo-meta",
+          "path": "mihomo-meta"
+        }
+      ]
+    },
+    {
+      "name": "passwall",
+      "url": "https://github.com/Openwrt-Passwall/openwrt-passwall.git",
+      "branch": "main",
+      "packages": [
+        {
+          "name": "luci-app-passwall",
+          "path": "luci-app-passwall"
+        }
+      ]
+    },
+    {
+      "name": "openclash",
+      "url": "https://github.com/vernesong/OpenClash.git",
+      "branch": "dev",
+      "packages": [
+        {
+          "name": "luci-app-openclash",
+          "path": "luci-app-openclash"
+        }
+      ]
+    },
+    {
+      "name": "daede",
+      "url": "https://github.com/kenzok8/openwrt-daede.git",
+      "branch": "main",
+      "layout": "repository",
+      "packages": [
+        {
+          "name": "dae",
+          "path": "dae"
+        },
+        {
+          "name": "daed",
+          "path": "daed"
+        },
+        {
+          "name": "luci-app-daede",
+          "path": "luci-app-daede"
+        },
+        {
+          "name": "vmlinux-btf",
+          "path": "vmlinux-btf"
+        }
+      ]
+    },
+    {
+      "name": "honk",
+      "url": "https://github.com/kenzok8/openwrt-honk.git",
+      "branch": "main",
+      "layout": "repository",
+      "packages": [
+        {
+          "name": "honk",
+          "path": "honk"
+        },
+        {
+          "name": "luci-app-honk",
+          "path": "luci-app-honk"
+        }
+      ]
+    },
+    {
+      "name": "mini-diskmanager",
+      "url": "https://github.com/4IceG/luci-app-mini-diskmanager.git",
+      "branch": "main",
+      "packages": [
+        {
+          "name": "luci-app-mini-diskmanager",
+          "path": "luci-app-mini-diskmanager"
+        }
+      ]
+    },
+    {
+      "name": "partexp",
+      "url": "https://github.com/sirpdboy/luci-app-partexp.git",
+      "branch": "main",
+      "packages": [
+        {
+          "name": "luci-app-partexp",
+          "path": "luci-app-partexp"
+        }
+      ]
+    },
+    {
+      "name": "natmapt",
+      "url": "https://github.com/muink/openwrt-natmapt.git",
+      "branch": "master",
+      "packages": [
+        {
+          "name": "natmapt",
+          "path": "."
+        }
+      ]
+    },
+    {
+      "name": "natmapt-ui",
+      "url": "https://github.com/muink/luci-app-natmapt.git",
+      "branch": "master",
+      "packages": [
+        {
+          "name": "luci-app-natmapt",
+          "path": "."
+        }
+      ]
+    },
+    {
+      "name": "stuntman",
+      "url": "https://github.com/muink/openwrt-stuntman.git",
+      "branch": "master",
+      "packages": [
+        {
+          "name": "stuntman",
+          "path": "."
+        }
+      ]
+    },
+    {
+      "name": "qbittorrent",
+      "url": "https://github.com/sbwml/luci-app-qbittorrent.git",
+      "branch": "master",
+      "packages": [
+        {
+          "name": "luci-app-qbittorrent",
+          "path": "luci-app-qbittorrent"
+        },
+        {
+          "name": "qbittorrent",
+          "path": "qbittorrent"
+        },
+        {
+          "name": "rblibtorrent",
+          "path": "rblibtorrent"
+        },
+        {
+          "name": "qt6base",
+          "path": "qt6base"
+        },
+        {
+          "name": "qt6tools",
+          "path": "qt6tools"
+        }
+      ]
+    },
+    {
+      "name": "ddns-go",
+      "url": "https://github.com/sirpdboy/luci-app-ddns-go.git",
+      "branch": "main",
+      "packages": [
+        {
+          "name": "ddns-go",
+          "path": "ddns-go"
+        },
+        {
+          "name": "luci-app-ddns-go",
+          "path": "luci-app-ddns-go"
+        }
+      ]
+    },
+    {
+      "name": "tailscale-ui",
+      "url": "https://github.com/asvow/luci-app-tailscale.git",
+      "branch": "main",
+      "packages": [
+        {
+          "name": "luci-app-tailscale",
+          "path": "."
+        }
       ]
     },
     {
       "name": "easytier",
       "url": "https://github.com/EasyTier/luci-app-easytier.git",
-      "commit": "9c51d3f8d2bfcefd039f2ff2354c6a7674293a06",
-      "packages": [
-        {"name": "luci-app-easytier", "path": "luci-app-easytier"},
-        {"name": "easytier", "path": "easytier"}
+      "branch": "main",
+      "files": [
+        "version.mk"
       ],
-      "files": ["version.mk"]
+      "packages": [
+        {
+          "name": "luci-app-easytier",
+          "path": "luci-app-easytier"
+        },
+        {
+          "name": "easytier",
+          "path": "easytier"
+        }
+      ]
     },
     {
       "name": "lucky",
       "url": "https://github.com/gdy666/luci-app-lucky.git",
-      "commit": "91b506627c1d81fa323816e3aeafcbde493d03a9",
+      "branch": "main",
       "packages": [
-        {"name": "luci-app-lucky", "path": "luci-app-lucky"},
-        {"name": "lucky", "path": "lucky"}
+        {
+          "name": "luci-app-lucky",
+          "path": "luci-app-lucky"
+        },
+        {
+          "name": "lucky",
+          "path": "lucky"
+        }
+      ]
+    },
+    {
+      "name": "reference-tools",
+      "url": "https://github.com/yjy116/Immortalwrt-CI-CR1000A-OWRT.git",
+      "branch": "main",
+      "packages": [
+        {
+          "name": "v2ray-geodata-updater",
+          "path": "package/v2ray-geodata-updater"
+        }
       ]
     }
   ]

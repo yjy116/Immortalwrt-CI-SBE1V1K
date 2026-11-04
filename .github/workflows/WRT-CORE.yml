@@ -12,6 +12,9 @@ on:
       source_snapshot:
         required: true
         type: string
+      package_snapshots:
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -27,6 +30,7 @@ jobs:
     env:
       WIFI: ${{ inputs.wifi }}
       SOURCE_SNAPSHOT: ${{ inputs.source_snapshot }}
+      PACKAGE_SNAPSHOTS: ${{ inputs.package_snapshots }}
       CONFIG_ONLY: ${{ inputs.config_only }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -38,14 +42,18 @@ jobs:
         run: bash Scripts/setup_runner.sh
       - name: Checkout upstream
         run: python3 Scripts/checkout_source.py --destination wrt --snapshot "$SOURCE_SNAPSHOT"
-      - name: Install feeds and pinned packages
+      - name: Install feeds and branch-tracked packages
         run: |
           cd wrt
           ./scripts/feeds update -a
           cd ..
           python3 Scripts/install_feeds.py --source wrt
+          printf '%s\n' "$PACKAGE_SNAPSHOTS" > package-snapshots.json
           python3 Scripts/prepare_packages.py --source wrt \
-            --manifest Config/packages.json --output wrt/ci-packages.json
+            --manifest Config/packages.json --output wrt/ci-packages.json \
+            --snapshots package-snapshots.json
+          python3 Scripts/integrate_backends.py --source wrt
+          python3 Scripts/integrate_packages.py --source wrt
       - name: Expand and verify configuration
         run: python3 Scripts/configure.py --source wrt --wifi "$WIFI"
       - name: Restore compiler cache
@@ -86,5 +94,6 @@ jobs:
             wrt/.config
             wrt/ci-*.json
             wrt/ci-*.log
+            wrt/ci-build/
             wrt/tmp/.config-*
             wrt/logs/
