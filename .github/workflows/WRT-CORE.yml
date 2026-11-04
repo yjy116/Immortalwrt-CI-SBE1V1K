@@ -56,22 +56,55 @@ jobs:
           python3 Scripts/integrate_packages.py --source wrt
       - name: Expand and verify configuration
         run: python3 Scripts/configure.py --source wrt --wifi "$WIFI"
-      - name: Restore compiler cache
+      - name: Compute compatible build cache key
+        id: cache-key
+        run: |
+          key=$(python3 Scripts/build_cache.py key --source wrt)
+          printf 'key=%s\n' "$key" >> "$GITHUB_OUTPUT"
+      - name: Restore tools, toolchain and compiler cache
+        id: build-cache
         if: ${{ !inputs.config_only }}
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: wrt/.ccache
-          key: sbe1v1k-ubuntu24-${{ inputs.wifi }}-${{ hashFiles('wrt/.config', 'wrt/ci-source.json', 'wrt/ci-feeds.json', 'Config/packages.json', 'Scripts/**') }}-${{ github.run_id }}
+          path: |
+            wrt/.ccache
+            wrt/staging_dir/host
+            wrt/staging_dir/toolchain-*
+          key: ${{ steps.cache-key.outputs.key }}-full-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            sbe1v1k-ubuntu24-${{ inputs.wifi }}-${{ hashFiles('wrt/.config', 'wrt/ci-source.json', 'wrt/ci-feeds.json', 'Config/packages.json', 'Scripts/**') }}-
+            ${{ steps.cache-key.outputs.key }}-full-
+            ${{ steps.cache-key.outputs.key }}-warm-
+      - name: Refresh compatible installed stamps
+        if: ${{ !inputs.config_only && steps.build-cache.outputs.cache-matched-key != '' }}
+        run: python3 Scripts/build_cache.py refresh --source wrt
+      - name: Prewarm tools and toolchain
+        if: ${{ !inputs.config_only && steps.build-cache.outputs.cache-matched-key == '' }}
+        working-directory: wrt
+        run: make tools/install toolchain/install -j"$(nproc)" 2>&1 | tee ci-prewarm.log
+      - name: Save warm tools and toolchain cache
+        if: ${{ !inputs.config_only && steps.build-cache.outputs.cache-matched-key == '' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            wrt/.ccache
+            wrt/staging_dir/host
+            wrt/staging_dir/toolchain-*
+          key: ${{ steps.cache-key.outputs.key }}-warm-${{ inputs.source_snapshot }}
       - name: Download source archives
         if: ${{ !inputs.config_only }}
         working-directory: wrt
-        run: make download -j"$(nproc)" V=s
+        run: make download -j"$(nproc)" 2>&1 | tee ci-download.log
       - name: Compile firmware
         if: ${{ !inputs.config_only }}
         working-directory: wrt
-        run: make -j"$(nproc)" V=s
+        run: bash "$GITHUB_WORKSPACE/Scripts/compile_firmware.sh"
+      - name: Upload build logs
+        if: ${{ always() && !inputs.config_only }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: build-logs-wifi-${{ inputs.wifi }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: wrt/ci-*.log
+          if-no-files-found: warn
       - name: Verify and collect outputs
         run: |
           args=(--source wrt --output artifacts --wifi "$WIFI")
@@ -79,6 +112,23 @@ jobs:
           python3 Scripts/collect_artifacts.py "${args[@]}"
           printf '### SBE1V1K WiFi-%s\n\n管理地址：192.168.70.1\n\nCONFIG_ONLY=%s\n' \
             "$WIFI" "$CONFIG_ONLY" >> "$GITHUB_STEP_SUMMARY"
+      - name: Save completed build cache
+        if: ${{ !inputs.config_only }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            wrt/.ccache
+            wrt/staging_dir/host
+            wrt/staging_dir/toolchain-*
+          key: ${{ steps.cache-key.outputs.key }}-full-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Record cache result
+        if: ${{ always() && !inputs.config_only && steps.cache-key.outcome == 'success' }}
+        env:
+          CACHE_KEY: ${{ steps.cache-key.outputs.key }}
+          MATCHED_KEY: ${{ steps.build-cache.outputs.cache-matched-key }}
+        run: |
+          printf '\nCache compatibility: `%s`\n\nRestored: `%s`\n' \
+            "$CACHE_KEY" "${MATCHED_KEY:-none (cold build)}" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: sbe1v1k-wifi-${{ inputs.wifi }}-${{ github.run_id }}-${{ github.run_attempt }}

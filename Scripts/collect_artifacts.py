@@ -54,7 +54,7 @@ def collect(args):
     records = [".config", "ci-source.json", "ci-feeds.json", "ci-packages.json", "ci-diffconfig.txt"]
     for name in records:
         shutil.copy2(args.source / name, args.output / ("config.txt" if name == ".config" else name))
-    for name in ("backend-components.json", "package-integration.json"):
+    for name in ("backend-components.json", "package-integration.json", "cache.json"):
         shutil.copy2(args.source / "ci-build" / name, args.output / f"ci-{name}")
     if not args.config_only:
         target = args.source / "bin/targets/qualcommbe/ipq95xx"
