@@ -34,6 +34,8 @@
 
 `CHECK.yml` 在 push / pull request 时执行仓库静态验证。配置检查、完整固件编译和实机测试是不同验证阶段；不能互相替代。
 
+2026-11-04 验证：代码提交 `1b2ca18` 的 [26 项 Linux 测试与工作流检查](https://github.com/yjy116/Immortalwrt-CI-SBE1V1K/actions/runs/41750028265)及 [WiFi / 无 WiFi 双配置展开](https://github.com/yjy116/Immortalwrt-CI-SBE1V1K/actions/runs/41750030966)均通过。完整固件是否成功请以相应 Actions / Release 为准；尚无实机验证记录。
+
 ## 下载文件
 
 保留上游文件名，以及 `sha256sums`、`*.buildinfo`、`profiles.json` 等构建记录。Release 标签格式为 `sbe1v1k-wifi-<mode>-<runid>-<attempt>`，其中 `<mode>` 是该版本的 `yes` 或 `no`。
@@ -48,7 +50,7 @@
 
 ## 修改配置
 
-在 `Config/` 中调整编译选项，在 `Scripts/defaults.py` 中设置默认 IP、主机名和主题。默认值只修改上游配置生成路径，保留配置升级时不覆盖已保存的 UCI 配置。修改后先运行静态检查和 `CONFIG_ONLY=true` 的配置检查，再执行完整构建；从日志确认所需软件包没有被依赖解析取消。
+在 `Config/` 中调整编译选项，在 `Scripts/defaults.py` 中设置默认 IP、主机名和主题。LAN 地址和主机名只修改上游生成默认值，保留配置升级时不会由本仓库脚本重置。Vantage 首次注册沿用其上游行为，可能切换已有主题。修改后先运行静态检查和 `CONFIG_ONLY=true` 的配置检查，再执行完整构建；从日志确认所需软件包没有被依赖解析取消。
 
 本地检查：`python3 -m unittest discover -s Tests -v`。Linux CI 对测试设置 60 秒超时，并运行 shell 语法检查与 actionlint。每个显式配置选项均会在 `make defconfig` 后核对，缺包会使任务失败。
 
