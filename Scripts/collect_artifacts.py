@@ -13,6 +13,7 @@ REQUIRED_PACKAGES = {
     "kmod-hwmon-pwmfan", "kmod-phy-realtek", "rtl826x-firmware"
 }
 WIRELESS_PACKAGES = {"kmod-ath12k", "ath12k-firmware-qcn9274-ddwrt", "ipq-wifi-askey_sbe1v1k"}
+ALL_WIRELESS_PACKAGES = WIRELESS_PACKAGES | {"ath12k-firmware-qcn9274"}
 IMAGE_SUFFIXES = ("-initramfs-uImage.itb", "-squashfs-sysupgrade.bin", "-squashfs-factory.bin")
 
 
@@ -22,8 +23,8 @@ def verify_manifest(path, wifi):
     missing = required - packages
     if missing:
         raise ValueError(f"Missing device packages in {path.name}: {sorted(missing)}")
-    if wifi == "no" and packages & WIRELESS_PACKAGES:
-        raise ValueError(f"Wireless packages remain: {sorted(packages & WIRELESS_PACKAGES)}")
+    if wifi == "no" and packages & ALL_WIRELESS_PACKAGES:
+        raise ValueError(f"Wireless packages remain: {sorted(packages & ALL_WIRELESS_PACKAGES)}")
 
 
 def verify_images(target, wifi):

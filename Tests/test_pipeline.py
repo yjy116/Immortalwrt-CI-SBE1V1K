@@ -140,6 +140,11 @@ class ArtifactTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Wireless packages remain"):
             verify_images(self.target, "no")
 
+    def test_rejects_vanilla_wireless_in_wired_manifest(self):
+        self.manifest(REQUIRED_PACKAGES | {"ath12k-firmware-qcn9274"})
+        with self.assertRaisesRegex(ValueError, "Wireless packages remain"):
+            verify_images(self.target, "no")
+
     def test_rejects_missing_phy_firmware(self):
         self.manifest((REQUIRED_PACKAGES | WIRELESS_PACKAGES) - {"rtl826x-firmware"})
         with self.assertRaisesRegex(ValueError, "Missing device packages"):
