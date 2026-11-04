@@ -57,17 +57,19 @@ Honk 保留上游的启动、停止、重启操作。停止会保存关闭状态
 
 ## 下载文件
 
-保留上游文件名，以及 `sha256sums`、`*.buildinfo`、`profiles.json` 等构建记录。Release 标签格式为 `sbe1v1k-wifi-<mode>-<runid>-<attempt>`，其中 `<mode>` 是该版本的 `yes` 或 `no`。
+发布标题使用 `SBE1V1K-WIFI-YES/NO-yjy116-owrt-日期时间`，固件文件名也包含 `wifi-yes/no` 和日期时间。日期取原构建任务创建时间并转为北京时间，补发时不改成补发日期。Release 标签仍使用 `sbe1v1k-wifi-<mode>-<runid>-<attempt>`，已有发布页链接保持不变；附件下载地址随文件名更新。
+
+发布说明顶部提供三种固件的直接下载链接。每版只有 7 个上传附件：3 个固件、编译配置、软件包 manifest、SHA256 校验表和 `build-records-*.tar.gz`，加上 GitHub 自动生成的两个源码包共 9 项，无需展开隐藏列表就能看到固件。固件内容不变；新校验表对应本页的新文件名。原 `sha256sums`、`SHA256SUMS-CI`、`*.buildinfo`、`profiles.json`、来源记录及包归档完整保存在构建记录压缩包中，`release-files.json` 记录原文件名到发布文件名的对应关系。Actions Artifact 继续保留原始文件名。
 
 启用发布时，运行开始即创建指向本次 CI 提交的标签；发布前再次校验标签，避免长时间编译期间 `main` 更新影响发布权限。`attempt` 使用准备任务输出的构建批次，因此仅重跑失败的发布任务可复用原 Artifact；重跑全部任务则建立新批次。固件先上传到草稿，全部上传成功后才正式发布；上传失败可续传该草稿，已正式发布的版本不会被替换。失败构建可能留下没有 Release 的标签。
 
 已完成编译但发布失败时，也可运行 `PUBLISH.yml`，填写原构建的 `RUN_ID`、`BUILD_ATTEMPT` 和 WiFi 版本。它会确认原构建成功、核对原 CI 标签、下载并校验原 Artifact，然后使用当前发布脚本重新发布，无需重新编译。原构建的工作流不会因仓库后来更新而改变，因此这个入口也能修复旧运行的发布问题；Artifact 必须仍在保留期内。
 
-| 文件后缀 | 用途 |
+| 文件名中的标识 | 用途 |
 | --- | --- |
-| `-initramfs-uImage.itb` | RAM 启动、首次安装流程与恢复所需镜像 |
-| `-squashfs-sysupgrade.bin` | 已按适用流程安装 OpenWrt / ImmortalWrt 后的系统升级 |
-| `-squashfs-factory.bin` | 上游生成的 rootfs 镜像，不能按名称推断为原厂 Web 可直接刷入的固件 |
+| `initramfs-uImage`（`.itb`） | RAM 启动、首次安装流程与恢复所需镜像 |
+| `squashfs-sysupgrade`（`.bin`） | 已按适用流程安装 OpenWrt / ImmortalWrt 后的系统升级 |
+| `squashfs-factory`（`.bin`） | 上游生成的 rootfs 镜像，不能按名称推断为原厂 Web 可直接刷入的固件 |
 
 **首次安装涉及设备专用的串口、eMMC 与启动环境操作。** 请先阅读 [设备说明](docs/DEVICE.md) 和其中的官方来源；本仓库不提供一键刷机脚本。编译成功仅证明构建完成，不代表实机启动、网络、无线或升级验证通过。
 
