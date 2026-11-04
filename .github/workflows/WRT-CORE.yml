@@ -57,6 +57,7 @@ jobs:
             --snapshots package-snapshots.json
           python3 Scripts/integrate_backends.py --source wrt
           python3 Scripts/integrate_packages.py --source wrt
+          python3 Scripts/integrate_local.py --source wrt
       - name: Expand and verify configuration
         run: python3 Scripts/configure.py --source wrt --wifi "$WIFI"
       - name: Compute compatible build cache key

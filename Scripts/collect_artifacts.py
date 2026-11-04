@@ -7,6 +7,8 @@ import json
 import shutil
 from pathlib import Path
 
+from integrate_local import verify_local_packages
+
 DEVICE = "askey_sbe1v1k"
 REQUIRED_PACKAGES = {
     "f2fsck", "mkf2fs", "f2fs-tools", "kmod-fs-f2fs", "kmod-qcom-ppe",
@@ -54,11 +56,12 @@ def collect(args):
     records = [".config", "ci-source.json", "ci-feeds.json", "ci-packages.json", "ci-diffconfig.txt"]
     for name in records:
         shutil.copy2(args.source / name, args.output / ("config.txt" if name == ".config" else name))
-    for name in ("backend-components.json", "package-integration.json", "cache.json"):
+    for name in ("backend-components.json", "package-integration.json", "local-packages.json", "cache.json"):
         shutil.copy2(args.source / "ci-build" / name, args.output / f"ci-{name}")
     if not args.config_only:
         target = args.source / "bin/targets/qualcommbe/ipq95xx"
         verify_images(target, args.wifi)
+        verify_local_packages(target, args.source / "ci-build/local-packages.json")
         for path in target.iterdir():
             if path.is_dir():
                 shutil.make_archive(str(args.output / path.name), "gztar", root_dir=path)

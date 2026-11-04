@@ -1,0 +1,15 @@
+{
+  "luci-app-sbe1v1k-fan": {
+    "description": "View and configure SBE1V1K kernel fan temperature thresholds",
+    "read": {
+      "ubus": {
+        "sbe1v1k.fan": ["status"]
+      }
+    },
+    "write": {
+      "ubus": {
+        "sbe1v1k.fan": ["configure"]
+      }
+    }
+  }
+}

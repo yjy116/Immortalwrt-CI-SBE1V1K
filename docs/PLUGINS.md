@@ -27,6 +27,8 @@
 
 AdGuard Home、Samba4、SQM、WireGuard、ZeroTier、SoftEther、统计工具等继续由源码配置的官方 feeds 提供。Tailscale 核心使用 packages feed，init/config 由 asvow 界面包提供，与参考的文件归属调整一致。UPnP 核心与界面使用同一个 VIKINGYFY/packages 提交，不覆写其配方。
 
+SBE1V1K 自带风扇，额外使用本仓库维护的 [`luci-app-sbe1v1k-fan`](../packages/luci-app-sbe1v1k-fan)；这属于设备适配，不以 CR1000A 的插件集合判断是否需要。它配置原生四档温控阈值，不安装通用 `fancontrol` 调速守护进程。文件校验值记录在 `ci-local-packages.json`，行为及来源见 [风扇说明](FAN.md)。
+
 DAE / DAED 沿用参考仓库的统一后端、互斥、迁移与 geodata 整合，补丁针对当前分支重新制作，并验证真实 shell / JavaScript 逻辑。Honk 保留上游启动、停止、重启及初始化逻辑；主动重启可以开启已关闭的服务。设备正常启动按保存的 enabled 状态处理。Doona 随 Honk 服务提供，不额外设置开机服务。
 
 “跟随插件分支”指更新打包配方；配方中组件提交、版本或发布归档的校验值仍由插件维护者选择。CI 保留这些值，记录到 `ci-backend-components.json`，不使用参考仓库旧版本的固定 Honk 生成配方覆盖当前分支。`ci-package-integration.json` 记录 UPnP 配对和 Tailscale 文件归属证据。

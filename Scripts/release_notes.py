@@ -32,6 +32,8 @@ def render_notes(args, plan):
     version = "WiFi 版" if plan["wifi"] == "yes" else "无 WiFi 版"
     wireless = ("WiFi 名称：SBE1V1K；初始禁用，启用前设置实际国家和加密口令。"
                 if plan["wifi"] == "yes" else "无线功能：此版本不含 WiFi 驱动和固件。")
+    fan = ("\n风扇控制：系统 → 风扇控制；支持四档温度阈值，默认原生自动温控。"
+           if "luci-app-sbe1v1k-fan" in plugins.split() else "")
     config = next(item for item in plan["assets"] if item["original"] == "config.txt")
     return f"""## 固件下载 · {version}
 
@@ -50,7 +52,7 @@ def render_notes(args, plan):
 
 登录地址：192.168.70.1
 登录密码：无；首次登录请设置 root 密码。
-{wireless}
+{wireless}{fan}
 
 插件列表：{plugins}
 

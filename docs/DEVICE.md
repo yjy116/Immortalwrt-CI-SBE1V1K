@@ -32,6 +32,8 @@ VIKINGYFY 的 `owrt` 与 `main` 均包含 SBE1V1K，但无线固件、target 默
 | 散热 | PWM 风扇与设备树温控策略 |
 | USB | 无外露 USB 接口 |
 
+风扇的 LuCI 界面使用本仓库专用插件，保留内核原生温控并允许设置四档 active 温度阈值，见 [风扇控制](FAN.md)。该功能在 WiFi / 无 WiFi 两版均保留，与 CR1000A 无风扇的硬件情况分别处理。
+
 [OpenWrt 首次支持提交](https://github.com/openwrt/openwrt/commit/31c49dd07660a8c9a3b8a34f6fb66ec37244c948)明确列出 USB ports 为 none。[Askey RTQ7300T 官方规格](https://www.askey.com/products-detail/349/)和 [Spectrum WiFi 7 手册](https://d15yx0mnc9teae.cloudfront.net/sites/default/files/2024-10/WiFi%207%20User%20Guide%20v13.pdf)列出的接口为以太网、电源和复位。未据此推断板上不存在测试焊盘；没有外露接口也不意味着必须剔除所有 USB 内核模块。
 
 2026-11-04 核对 VIKINGYFY/OpenWRT-CI 的 [IPQ53XX 发布](https://github.com/VIKINGYFY/OpenWRT-CI/releases/tag/IPQ53XX-VIKINGYFY-owrt-26.11.04-09.31.12)和 [IPQ807X 无 WiFi 发布](https://github.com/VIKINGYFY/OpenWRT-CI/releases/tag/IPQ807X-WIFI-NO-VIKINGYFY-owrt-26.11.04-09.30.53)，实际 manifest 均包含 `kmod-usb-core`、`kmod-usb3`、DWC3、高通控制器、USB 存储/网卡驱动及 `automount`。这些是其他目标的通用发布，不构成 SBE1V1K 实机验证。

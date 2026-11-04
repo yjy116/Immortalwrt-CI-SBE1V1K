@@ -1,0 +1,22 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+
+start() {
+	local result
+	if result="$(/usr/libexec/rpcd/sbe1v1k.fan apply 2>&1)"; then
+		return 0
+	fi
+	logger -t sbe1v1k-fan "$result"
+	printf '%s\n' "$result" >&2
+	return 1
+}
+
+reload() {
+	start
+}
+
+stop() {
+	# The kernel remains the fan owner; there is no daemon to stop.
+	return 0
+}

@@ -1,0 +1,6 @@
+config fan 'settings'
+	option custom '0'
+	option t0 '40'
+	option t1 '50'
+	option t2 '65'
+	option t3 '80'

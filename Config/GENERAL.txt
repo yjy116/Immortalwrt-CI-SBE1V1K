@@ -4,6 +4,7 @@ CONFIG_DEVEL=y
 CONFIG_PACKAGE_luci=y
 CONFIG_LUCI_LANG_zh_Hans=y
 CONFIG_PACKAGE_luci-compat=y
+CONFIG_PACKAGE_luci-app-sbe1v1k-fan=y
 CONFIG_PACKAGE_luci-theme-vantage=y
 CONFIG_PACKAGE_luci-app-vantage=y
 CONFIG_PACKAGE_luci-i18n-vantage-theme-zh-cn=y

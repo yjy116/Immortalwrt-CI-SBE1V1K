@@ -15,11 +15,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Install Lua backend test runtime
+        run: sudo apt-get update && sudo apt-get install -y lua5.1
       - name: Test configuration and packaging contracts
         run: timeout 60s python3 -m unittest discover -s Tests -v
       - name: Check shell syntax
         run: |
-          for script in Scripts/*.sh Tests/*.sh files/etc/uci-defaults/*; do bash -n "$script"; done
+          for script in Scripts/*.sh Tests/*.sh files/etc/uci-defaults/* packages/*/root/etc/init.d/*; do bash -n "$script"; done
+      - name: Check device plugin JavaScript syntax
+        run: node --check packages/luci-app-sbe1v1k-fan/htdocs/luci-static/resources/view/sbe1v1k-fan.js
       - name: Validate workflow syntax
         run: |
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
