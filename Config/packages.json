@@ -1,5 +1,10 @@
 {
   "schema": 1,
+  "feed_dependencies": [
+    "csstidy", "curl", "golang", "luci-base", "luci-compat",
+    "luci-lib-ip", "luci-lib-jsonc", "luci-lib-nixio",
+    "luci-lua-runtime", "luasrcdiet", "yq"
+  ],
   "sources": [
     {
       "name": "vantage",

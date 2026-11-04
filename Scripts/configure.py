@@ -53,6 +53,16 @@ def record_feeds(source):
     (source / "ci-feeds.json").write_text(json.dumps(result, indent=2) + "\n")
 
 
+def expand_config(source):
+    result = subprocess.run(["make", "defconfig"], cwd=source, text=True,
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    print(result.stdout, end="", flush=True)
+    (source / "ci-defconfig.log").write_text(result.stdout, encoding="utf-8")
+    result.check_returncode()
+    if re.search(r"(^|\n).*\berror:", result.stdout, re.IGNORECASE):
+        raise ValueError("Kconfig reported errors; see ci-defconfig.log")
+
+
 def configure(source, wifi):
     profile = ROOT / "Config" / f"SBE1V1K-WIFI-{wifi.upper()}.txt"
     text = profile.read_text() + "\n" + (ROOT / "Config/GENERAL.txt").read_text()
@@ -60,7 +70,7 @@ def configure(source, wifi):
     config = source / ".config"
     config.write_text(text, encoding="utf-8")
     apply_defaults(source)
-    subprocess.run(["make", "defconfig"], cwd=source, check=True)
+    expand_config(source)
     verify(requested, parse_config(config.read_text()))
     record_feeds(source)
     diff = subprocess.check_output(["./scripts/diffconfig.sh"], cwd=source)

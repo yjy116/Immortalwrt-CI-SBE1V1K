@@ -12,9 +12,15 @@ sys.path.insert(0, str(ROOT / "Scripts"))
 from collect_artifacts import IMAGE_SUFFIXES, REQUIRED_PACKAGES, WIRELESS_PACKAGES, verify_images
 from configure import DEVICE_SYMBOL, parse_config, verify
 from defaults import LAN_IP, apply_defaults
+from install_feeds import selected_packages
 
 
 class ConfigTests(unittest.TestCase):
+    def test_feed_selection_excludes_custom_and_disabled_packages(self):
+        manifest = {"sources": [{"packages": [{"name": "luci-theme-vantage"}]}]}
+        config = "CONFIG_PACKAGE_luci=y\nCONFIG_PACKAGE_luci-theme-vantage=y\nCONFIG_PACKAGE_unused=n\n"
+        self.assertEqual(selected_packages(config, manifest), {"luci"})
+
     def test_configs_request_only_the_expected_device(self):
         for mode in ("YES", "NO"):
             with self.subTest(mode=mode):
