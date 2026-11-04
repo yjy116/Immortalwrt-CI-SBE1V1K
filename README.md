@@ -11,9 +11,11 @@
 | 管理用户 | `root`，无预设密码；首次登录后设置 |
 | 无线 | 本仓库设置初始禁用；启用前设置实际国家/地区与加密口令 |
 | 主题 | Vantage |
-| 源码 | `yjy116/immortalwrt:owrt`，默认锁定提交 `a8d4a44c8ede4c703e8866fbf709b34dd1506294` |
+| 源码 | 每次构建跟随 `yjy116/immortalwrt:owrt` 最新提交 |
 
-源码地址和默认提交记录在 [Config/source.json](Config/source.json)。默认配置包括 HomeProxy、PassWall、OpenClash、Nikki、AdGuard Home、DDNS-Go、Lucky、Tailscale、EasyTier、SQM、UPnP、ttyd、Samba4、WireGuard 和 ZeroTier。软件包优先采用官方 feeds，外部补充仅涉及 Vantage、Nikki、EasyTier 和 Lucky。Aurora、DAE / Honk 未移植。
+源码地址和分支记录在 [Config/source.json](Config/source.json)，不固定主源码提交。你同步 `yjy116/immortalwrt:owrt` 后，下一次运行会使用更新后的分支。一次运行先解析最新提交，再让 WiFi / 无 WiFi 两个任务使用该次解析的同一源码版本，避免构建期间分支更新造成版本不一致；实际 SHA 写入产物供追溯。
+
+默认配置包括 HomeProxy、PassWall、OpenClash、Nikki、AdGuard Home、DDNS-Go、Lucky、Tailscale、EasyTier、SQM、UPnP、ttyd、Samba4、WireGuard 和 ZeroTier。软件包优先采用官方 feeds，外部补充仅涉及 Vantage、Nikki、EasyTier 和 Lucky。Aurora、DAE / Honk 未移植。
 
 ## 开始编译
 
@@ -26,9 +28,8 @@
 | `WIFI_MODE` | `both` | `both` 同时构建带无线与无无线版本；`yes` 仅带无线；`no` 仅无无线 |
 | `CONFIG_ONLY` | `false` | 为 `true` 时只解析并验证配置、保存配置与来源记录，不编译固件或发布 Release |
 | `PUBLISH` | `true` | 完整固件构建成功后发布 Release |
-| `SOURCE_REF` | 留空 | 使用 `Config/source.json` 锁定提交；填 `owrt` 可跟随该分支最新提交 |
 
-带无线版本使用 owrt 的 ath12k 驱动、`ath12k-firmware-qcn9274-ddwrt` 固件及 SBE1V1K 板级数据。两种版本均保留原生 QCOM PPE、eMMC 和风扇依赖。无无线版本用于有线路由用途。构建保存实际源码提交，便于定位结果；选择滚动分支时，不同时间运行可能得到不同源码。
+带无线版本使用 owrt 的 ath12k 驱动、`ath12k-firmware-qcn9274-ddwrt` 固件及 SBE1V1K 板级数据。两种版本均保留原生 QCOM PPE、eMMC 和风扇依赖。无无线版本用于有线路由用途。构建保存实际源码提交，便于定位结果；分支更新后，不同运行会得到不同源码。
 
 该 owrt 源本身预设无线开启、国家代码与共享口令。本仓库修改首次生成的无线默认值：SSID 为 `SBE1V1K`、初始禁用、不预置共享口令或固定国家代码；已有无线配置继续由上游检测逻辑保留。CI 仓库分支为 `main`，固件源码分支为 `owrt`，请勿混淆。
 
@@ -56,7 +57,7 @@
 
 本地检查：`python3 -m unittest discover -s Tests -v`。Linux CI 对测试设置 60 秒超时，并运行 shell 语法检查与 actionlint。每个显式配置选项均会在 `make defconfig` 后核对，缺包会使任务失败。
 
-主源码与外部插件配方固定提交；官方 feeds 仍按源码提供的分支更新，实际 SHA 会记录到产物中。默认不会自动同步或改写源码 fork；升级默认源码时应核对 `owrt` 变更并更新 `Config/source.json` 的提交。EasyTier 与 Lucky 沿用其上游二进制下载配方，其中并非所有下载都有固定内容哈希；这里不宣称完全可复现构建。
+主源码跟随 `owrt`，官方 feeds 按源码提供的分支更新，实际 SHA 均记录到产物中。CI 读取源码 fork，由你负责同步 fork；同步后无需修改本仓库的提交配置。外部插件版本独立记录在 `Config/packages.json`。EasyTier 与 Lucky 沿用其上游二进制下载配方，其中并非所有下载都有固定内容哈希；这里不宣称完全可复现构建。
 
 只安装选中插件及其递归依赖，外部包的官方 feed / host 依赖列在 `Config/packages.json` 的 `feed_dependencies` 中。不安装无关的软件包集合；Kconfig 输出错误时，即使命令返回零也会使配置验证失败。
 

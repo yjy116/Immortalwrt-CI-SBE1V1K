@@ -16,10 +16,6 @@ on:
         description: '编译成功后发布 GitHub Release'
         type: boolean
         default: true
-      SOURCE_REF:
-        description: '源码分支或提交；留空使用 Config/source.json 锁定提交'
-        type: string
-        required: false
 
 permissions:
   contents: read
@@ -29,7 +25,16 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       wifi: ${{ steps.select.outputs.wifi }}
+      source_commit: ${{ steps.source.outputs.commit }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Resolve latest upstream branch for this run
+        id: source
+        run: |
+          commit=$(python3 Scripts/checkout_source.py --resolve-only)
+          printf 'commit=%s\n' "$commit" >> "$GITHUB_OUTPUT"
       - id: select
         env:
           WIFI_MODE: ${{ inputs.WIFI_MODE }}
@@ -50,7 +55,7 @@ jobs:
     with:
       wifi: ${{ matrix.wifi }}
       config_only: ${{ inputs.CONFIG_ONLY }}
-      source_ref: ${{ inputs.SOURCE_REF }}
+      source_snapshot: ${{ needs.matrix.outputs.source_commit }}
 
   release:
     if: ${{ !inputs.CONFIG_ONLY && inputs.PUBLISH }}

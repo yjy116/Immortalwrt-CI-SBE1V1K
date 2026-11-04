@@ -4,16 +4,16 @@
 
 ## 源码依据
 
-本仓库直接使用 **[yjy116/immortalwrt](https://github.com/yjy116/immortalwrt) 的 `owrt` 分支**，其来源为 [VIKINGYFY/immortalwrt](https://github.com/VIKINGYFY/immortalwrt/tree/owrt)，默认锁定提交 [`a8d4a44c8ede4c703e8866fbf709b34dd1506294`](https://github.com/yjy116/immortalwrt/commit/a8d4a44c8ede4c703e8866fbf709b34dd1506294)。核验时 yjy116 仓库仅列出 `owrt` 分支，选定提交与 VIKINGYFY 的 `owrt` 一致；构建直接拉取 yjy116 仓库的 `owrt`，不改用 `main`。
+本仓库直接跟随 **[yjy116/immortalwrt](https://github.com/yjy116/immortalwrt) 的 `owrt` 分支最新提交**，其来源为 [VIKINGYFY/immortalwrt](https://github.com/VIKINGYFY/immortalwrt/tree/owrt)，不固定主源码提交。本文硬件核验样本为 [`a8d4a44c8ede4c703e8866fbf709b34dd1506294`](https://github.com/yjy116/immortalwrt/commit/a8d4a44c8ede4c703e8866fbf709b34dd1506294)，与当时 VIKINGYFY 的 `owrt` 一致；下方固定链接用于保留核验依据，不控制后续构建版本。实际源码 SHA 以每次运行产物为准。
 
-VIKINGYFY 的 `owrt` 与 `main` 均包含 SBE1V1K，但无线固件、target 默认包、设备树和 PPE 实现有差异。**`main` 不能作为 `owrt` 的同义替换。** 使用其他 `SOURCE_REF` 时，必须重新检查设备配置与软件包依赖；本仓库的配置和验证以 `owrt` 为依据。
+VIKINGYFY 的 `owrt` 与 `main` 均包含 SBE1V1K，但无线固件、target 默认包、设备树和 PPE 实现有差异。**`main` 不能作为 `owrt` 的同义替换。** 本仓库的配置和验证以 `owrt` 为依据；分支更新后若设备或软件包接口改变，构建检查会明确报告不兼容项。
 
 | 编译项 | 值 |
 | --- | --- |
 | Target / Subtarget | `qualcommbe/ipq95xx` |
 | Device profile | `askey_sbe1v1k` |
 | 软件包架构 | `aarch64_cortex-a53` |
-| 锁定源码的内核系列 | Linux 6.18 |
+| 核验样本的内核系列 | Linux 6.18 |
 | Device tree | `ipq9570-sbe1v1k.dts`，包含 `ipq9574-common.dtsi` 与 `ipq9574-common-wifi-pci.dtsi` |
 
 对应配置符号为 `CONFIG_TARGET_qualcommbe`、`CONFIG_TARGET_qualcommbe_ipq95xx` 和 `CONFIG_TARGET_qualcommbe_ipq95xx_DEVICE_askey_sbe1v1k`。

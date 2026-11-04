@@ -9,10 +9,9 @@ on:
       config_only:
         required: true
         type: boolean
-      source_ref:
-        required: false
+      source_snapshot:
+        required: true
         type: string
-        default: ''
 
 permissions:
   contents: read
@@ -27,7 +26,7 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       WIFI: ${{ inputs.wifi }}
-      SOURCE_REF: ${{ inputs.source_ref }}
+      SOURCE_SNAPSHOT: ${{ inputs.source_snapshot }}
       CONFIG_ONLY: ${{ inputs.config_only }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -38,7 +37,7 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
         run: bash Scripts/setup_runner.sh
       - name: Checkout upstream
-        run: python3 Scripts/checkout_source.py --destination wrt --ref "$SOURCE_REF"
+        run: python3 Scripts/checkout_source.py --destination wrt --snapshot "$SOURCE_SNAPSHOT"
       - name: Install feeds and pinned packages
         run: |
           cd wrt
