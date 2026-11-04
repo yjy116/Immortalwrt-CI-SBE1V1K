@@ -127,7 +127,7 @@ jobs:
           CACHE_KEY: ${{ steps.cache-key.outputs.key }}
           MATCHED_KEY: ${{ steps.build-cache.outputs.cache-matched-key }}
         run: |
-          printf '\nCache compatibility: `%s`\n\nRestored: `%s`\n' \
+          printf '\nCache compatibility: %s\n\nRestored: %s\n' \
             "$CACHE_KEY" "${MATCHED_KEY:-none (cold build)}" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
