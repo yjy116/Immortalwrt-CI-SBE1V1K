@@ -9,6 +9,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "Scripts/compile_firmware.sh"
 TIMEOUT_SECONDS = 60
+GNU_MAKE_RECIPE_FAILURE = 2
 WARNING = "::warning::Parallel build failed; retrying with one job and verbose output."
 MAKEFILE = """SHELL := sh
 PHASE := $(if $(filter s,$(V)),retry,normal)
@@ -51,6 +52,7 @@ class FirmwareCompileTests(unittest.TestCase):
         environment["PATH"] = os.pathsep.join((
             str(Path(self.make).parent), str(Path(self.bash).parent), environment.get("PATH", ""),
         ))
+        environment["LC_ALL"] = "C"
         return subprocess.run(
             [self.bash, SCRIPT.as_posix()], cwd=self.source, env=environment,
             capture_output=True, text=True, timeout=TIMEOUT_SECONDS,
@@ -84,6 +86,18 @@ class FirmwareCompileTests(unittest.TestCase):
         self.assertIn("recipe-failure:normal", initial)
         return retry
 
+    def assert_disk_snapshots(self):
+        content = (self.source / "ci-disk.log").read_text(encoding="utf-8")
+        before = "Build storage: before-compile"
+        after = "Build storage: after-compile"
+        self.assertEqual(content.count(before), 1, content)
+        self.assertEqual(content.count(after), 1, content)
+        self.assertLess(content.index(before), content.index(after))
+        for snapshot in content.split(after):
+            self.assertRegex(snapshot, r"Filesystem\s+Size\s+Used\s+Avail\s+Use%")
+            self.assertRegex(snapshot, r"Filesystem\s+Inodes\s+IUsed\s+IFree\s+IUse%")
+            self.assertRegex(snapshot, r"(?m)^\S+\s+\d+\s+\d+\s+\d+\s+\d+%\s+\S+")
+
     def test_first_success_does_not_retry(self):
         result = self.compile("printf 'recipe-success:%s\\n' '$(PHASE)'")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -91,6 +105,7 @@ class FirmwareCompileTests(unittest.TestCase):
         self.assertIn("recipe-success:normal", self.assert_log("ci-compile.log", "normal"))
         self.assertFalse((self.source / "ci-compile-retry.log").exists())
         self.assertNotIn("::warning::", result.stdout + result.stderr)
+        self.assert_disk_snapshots()
 
     def test_first_failure_retries_serial_verbose_and_preserves_both_logs(self):
         result = self.compile(
@@ -99,11 +114,13 @@ class FirmwareCompileTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("recipe-success:retry", self.assert_retry_evidence(result))
+        self.assert_disk_snapshots()
 
     def test_two_failures_propagate_nonzero_status_and_preserve_both_logs(self):
         result = self.compile("printf 'recipe-failure:%s\\n' '$(PHASE)' >&2; exit 9")
-        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.returncode, GNU_MAKE_RECIPE_FAILURE, result.stdout + result.stderr)
         self.assertIn("recipe-failure:retry", self.assert_retry_evidence(result))
+        self.assert_disk_snapshots()
 
 
 if __name__ == "__main__":

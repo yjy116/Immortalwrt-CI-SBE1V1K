@@ -51,6 +51,10 @@ Honk 保留上游的启动、停止、重启操作。停止会保存关闭状态
 
 日志沿用 CR1000A 的常规简洁输出。固件并行编译失败时，明确提示后以 `make -j1 V=s` 再编译并输出详细诊断；如果第二次仍失败，任务会失败。`build-logs-wifi-*` Artifact 保留预热、下载、首次编译和存在时的详细重试日志。
 
+完整构建会先清理 GitHub 临时 Runner 中未使用的 Swift、GHCup、CodeQL、Miniconda、Julia、浏览器测试工具、PowerShell 和 Vcpkg 等预装 SDK，系统编译工具和其余工具缓存保留。此清理与工具链安装分别执行，不因清理脚本变化废弃兼容的编译缓存。`runner-storage.log` 记录清理前后的磁盘容量、inode 和实际清理目录大小，`ci-disk.log` 记录固件编译前后状态，均随构建日志上传。
+
+2026-11-05 排查 [41822380302 的 WiFi 失败任务](https://github.com/yjy116/Immortalwrt-CI-SBE1V1K/actions/runs/41822380302/job/126548527295)：GitHub 的检查注释明确记录 Runner 写日志时发生 `No space left on device` 并异常退出，后续日志上传未能执行。无 WiFi 任务及其风扇插件产物校验成功，但不能据此认定两版均成功。新增 SDK 清理与空间记录用于修正这次存储耗尽问题；已丢失的 WiFi 任务日志不能用于推断具体占用目录。
+
 每次 Actions Summary 会显示实际恢复的缓存键，产物 `ci-cache.json` 保存兼容性依据。没有缓存的首次编译不会因此立即加速，后续命中才可省去重复的工具链工作；插件自身的 Go/Rust 等构建仍可能耗时。缓存不包含完整 `build_dir`、目标 staging、feeds、下载目录或旧固件。
 
 2026-11-04：[完整构建](https://github.com/yjy116/Immortalwrt-CI-SBE1V1K/actions/runs/41763922900)的 WiFi / 无 WiFi 两个编译任务及产物检查均成功，均未触发详细重试。`ci-compile.log` 分别为 311 / 306 行；完整缓存分别保存约 932 / 891 MB。本轮是冷构建，尚未实测缓存恢复后的提速。
