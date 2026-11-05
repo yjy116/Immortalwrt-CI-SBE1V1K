@@ -55,6 +55,8 @@ Honk 保留上游的启动、停止、重启操作。停止会保存关闭状态
 
 2026-11-05 排查 [41822380302 的 WiFi 失败任务](https://github.com/yjy116/Immortalwrt-CI-SBE1V1K/actions/runs/41822380302/job/126548527295)：GitHub 的检查注释明确记录 Runner 写日志时发生 `No space left on device` 并异常退出，后续日志上传未能执行。无 WiFi 任务及其风扇插件产物校验成功，但不能据此认定两版均成功。新增 SDK 清理与空间记录用于修正这次存储耗尽问题；已丢失的 WiFi 任务日志不能用于推断具体占用目录。
 
+修复后的 [41942365611](https://github.com/yjy116/Immortalwrt-CI-SBE1V1K/actions/runs/41942365611) 已完成双版本编译与发布：[WiFi 版](https://github.com/yjy116/Immortalwrt-CI-SBE1V1K/releases/tag/sbe1v1k-wifi-yes-41942365611-1)、[无 WiFi 版](https://github.com/yjy116/Immortalwrt-CI-SBE1V1K/releases/tag/sbe1v1k-wifi-no-41942365611-1)。两台 Runner 各额外释放约 13 GiB，编译结束分别剩余约 58 / 60 GiB；两版均实际命中约 235 MB 的工具链预热缓存，跳过重新预热，并在首次并行编译中成功。固件内风扇插件的 11 个安装文件、权限、菜单及 `S99sbe1v1k-fan` 开机链接已实读核验。该次编译 CI 为 `06882596`，实际主源码为 `ec73307670005a1f00cbeb039dc90709fa2a871e`；Linux 仓库检查 110 项通过、无跳过。
+
 每次 Actions Summary 会显示实际恢复的缓存键，产物 `ci-cache.json` 保存兼容性依据。没有缓存的首次编译不会因此立即加速，后续命中才可省去重复的工具链工作；插件自身的 Go/Rust 等构建仍可能耗时。缓存不包含完整 `build_dir`、目标 staging、feeds、下载目录或旧固件。
 
 2026-11-04：[完整构建](https://github.com/yjy116/Immortalwrt-CI-SBE1V1K/actions/runs/41763922900)的 WiFi / 无 WiFi 两个编译任务及产物检查均成功，均未触发详细重试。`ci-compile.log` 分别为 311 / 306 行；完整缓存分别保存约 932 / 891 MB。本轮是冷构建，尚未实测缓存恢复后的提速。
@@ -68,6 +70,8 @@ Honk 保留上游的启动、停止、重启操作。停止会保存关闭状态
 发布说明顶部提供三种固件的直接下载链接。每版只有 7 个上传附件：3 个固件、编译配置、软件包 manifest、SHA256 校验表和 `build-records-*.tar.gz`，加上 GitHub 自动生成的两个源码包共 9 项，无需展开隐藏列表就能看到固件。固件内容不变；新校验表对应本页的新文件名。原 `sha256sums`、`SHA256SUMS-CI`、`*.buildinfo`、`profiles.json`、来源记录及包归档完整保存在构建记录压缩包中，`release-files.json` 记录原文件名到发布文件名的对应关系。Actions Artifact 继续保留原始文件名。
 
 启用发布时，运行开始即创建指向本次 CI 提交的标签；发布前再次校验标签，避免长时间编译期间 `main` 更新影响发布权限。`attempt` 使用准备任务输出的构建批次，因此仅重跑失败的发布任务可复用原 Artifact；重跑全部任务则建立新批次。固件先上传到草稿，全部上传成功后才正式发布；上传失败可续传该草稿，已正式发布的版本不会被替换。失败构建可能留下没有 Release 的标签。
+
+正在构建的标签需要保留到发布完成。`41942365611` 的两个标签在创建后、发布前缺失，导致首次发布被校验拒绝；恢复为原 CI 提交后，仅重试失败的发布任务即成功，未重新编译。恢复标签时必须核对原任务的完整 CI SHA，不能把标签改指向当时的最新 `main`。
 
 已完成编译但发布失败时，也可运行 `PUBLISH.yml`，填写原构建的 `RUN_ID`、`BUILD_ATTEMPT` 和 WiFi 版本。它会确认原构建成功、核对原 CI 标签、下载并校验原 Artifact，然后使用当前发布脚本重新发布，无需重新编译。原构建的工作流不会因仓库后来更新而改变，因此这个入口也能修复旧运行的发布问题；Artifact 必须仍在保留期内。
 
