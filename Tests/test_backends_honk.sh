@@ -19,12 +19,20 @@ cp "$TEST_DIR/config.dae" "$TEST_DIR/original.dae"
 config_load() { :; }
 config_get_bool() {
   case "$3" in
-    enabled) printf -v "$1" '%s' "$EXPECT_ENABLED" ;;
+    enabled) printf -v "$1" '%s' "$(command cat "$TEST_DIR/enabled")" ;;
     initialized) printf -v "$1" '%s' "$EXPECT_INITIALIZED" ;;
     *) return 99 ;;
   esac
 }
 config_get() { printf -v "$1" '%s' "$4"; }
+uci() {
+  case "$*" in
+    'get honk.main.enabled'|'-q get honk.main.enabled') command cat "$TEST_DIR/enabled" ;;
+    set\ honk.main.enabled=*) printf '%s\n' "${2#*=}" > "$TEST_DIR/enabled" ;;
+    'commit honk') echo commit >> "$TEST_DIR/rpc-effects" ;;
+    *) echo "unexpected UCI operation: $*" >&2; return 99 ;;
+  esac
+}
 logger() { :; }
 procd_open_instance() { echo launch >> "$TEST_DIR/effects"; }
 procd_set_param() { :; }
@@ -64,6 +72,7 @@ start() {
 
 check_service() (
   EXPECT_ENABLED=$1 EXPECT_INITIALIZED=$2 action=$3
+  printf '%s\n' "$EXPECT_ENABLED" > "$TEST_DIR/enabled"
   : > "$TEST_DIR/effects"
   load_init
   result=0
@@ -77,7 +86,7 @@ check_service() (
       echo "disabled/uninitialized service launched: $action"; return 1;
     }
   fi
-  [ "$EXPECT_ENABLED" = "$1" ]
+  [ "$(command cat "$TEST_DIR/enabled")" = "$1" ]
   cmp "$TEST_DIR/config.dae" "$TEST_DIR/original.dae"
 )
 
@@ -88,17 +97,26 @@ for action in start boot; do
   check_service 1 1 "$action"
 done
 
+expected_restart_effects() {
+  printf 'stop\ndelete-link dae0\ndelete-link dae0peer\ndelete-netns daens\nlaunch\n' > "$TEST_DIR/expected"
+}
+
 check_restart() (
-  EXPECT_ENABLED=1 EXPECT_INITIALIZED=1 action=$1 scenario=$2
-  ROUTER_STATE=old
+  EXPECT_INITIALIZED=1 action=$1 scenario=$2 requested_enabled=1
+  [ "$scenario" != disabled ] || requested_enabled=0
+  printf '%s\n' "$requested_enabled" > "$TEST_DIR/enabled"
+  ROUTER_STATE=old LINK_DAE0=1 LINK_DAE0PEER=1 NETNS_STATE=1
   : > "$TEST_DIR/effects"
   load_init
   result=0
   "$action" 2> "$TEST_DIR/errors" || result=$?
   case "$scenario" in
     normal)
-      [ "$result" = 0 ]
-      printf 'stop\ndrain\nlaunch\n' > "$TEST_DIR/expected"
+      [ "$result" = 0 ] || {
+        command cat "$TEST_DIR/errors" >&2
+        echo 'native lifecycle restart unexpectedly failed' >&2; return 1;
+      }
+      expected_restart_effects
       cmp "$TEST_DIR/expected" "$TEST_DIR/effects" ;;
     stop_failure)
       [ "$result" != 0 ]
@@ -108,14 +126,17 @@ check_restart() (
       [ "$result" != 0 ]
       ! grep -qx launch "$TEST_DIR/effects"
       grep -q 'init start failed' "$TEST_DIR/errors" ;;
+    disabled)
+      [ "$result" = 0 ] && [ ! -s "$TEST_DIR/effects" ]
+      [ "$ROUTER_STATE:$LINK_DAE0:$LINK_DAE0PEER:$NETNS_STATE" = old:1:1:1 ] ;;
     *) echo "unknown restart scenario: $scenario" >&2; return 99 ;;
   esac
-  [ "$EXPECT_ENABLED" = 1 ]
+  [ "$(command cat "$TEST_DIR/enabled")" = "$requested_enabled" ]
   cmp "$TEST_DIR/config.dae" "$TEST_DIR/original.dae"
 )
 
 for action in restart reload_service; do
-  for scenario in normal stop_failure start_failure; do
+  for scenario in normal stop_failure start_failure disabled; do
     check_restart "$action" "$scenario"
   done
 done
@@ -123,14 +144,6 @@ done
 # Exercise actual RPC case arms, not rewritten enable/disable logic.
 sed '/^case "\$1" in$/,$d' "$RPC" | sed '\|^\. /|d' > "$TEST_DIR/rpc-functions"
 sed -n '/^case "\$1" in$/,$p' "$RPC" > "$TEST_DIR/rpc-dispatch"
-uci() {
-  case "$*" in
-    '-q get honk.main.enabled') command cat "$TEST_DIR/enabled" ;;
-    set\ honk.main.enabled=*) printf '%s\n' "${2#*=}" > "$TEST_DIR/enabled" ;;
-    'commit honk') echo commit >> "$TEST_DIR/rpc-effects" ;;
-    *) echo "unexpected UCI operation: $*" >&2; return 99 ;;
-  esac
-}
 pidof() { return 1; }
 
 check_rpc() (
@@ -171,20 +184,15 @@ if restart_status=1 check_rpc 0 restart; then echo 'failed restart unexpectedly 
 load_rpc_lifecycle() {
   load_init
   source "$TEST_DIR/rpc-functions"
-  source "$TEST_DIR/lifecycle.sh"
-  config_get_bool() {
-    case "$3" in
-      enabled) printf -v "$1" '%s' "$(command cat "$TEST_DIR/enabled")" ;;
-      initialized) printf -v "$1" '%s' "$EXPECT_INITIALIZED" ;;
-      *) return 99 ;;
-    esac
-  }
+  # The native library probes timeout's nonzero status without rc.common errexit.
+  source "$TEST_DIR/lifecycle.sh" || return $?
   begin_mutation() { :; }
   emit_result() { printf '%s %s\n' "$1" "$2" >> "$TEST_DIR/rpc-result"; }
 }
 
 check_rpc_lifecycle() (
   scenario=$1 EXPECT_INITIALIZED=1 ROUTER_STATE=old
+  LINK_DAE0=1 LINK_DAE0PEER=1 NETNS_STATE=1
   printf '0\n' > "$TEST_DIR/enabled"
   : > "$TEST_DIR/effects"
   : > "$TEST_DIR/rpc-effects"
@@ -199,13 +207,13 @@ check_rpc_lifecycle() (
         echo 'RPC lifecycle restart unexpectedly failed' >&2; return 1;
       }
       [ "$(command cat "$TEST_DIR/enabled")" = 1 ]
-      printf 'stop\ndrain\nlaunch\n' > "$TEST_DIR/expected"
+      expected_restart_effects
       printf 'true restarted\n' > "$TEST_DIR/expected-result"
       printf 'commit\n' > "$TEST_DIR/expected-commits" ;;
     stop_failure)
       [ "$result" != 0 ]
       [ "$(command cat "$TEST_DIR/enabled")" = 0 ]
-      printf 'stop\ndrain\n' > "$TEST_DIR/expected"
+      printf 'stop\n' > "$TEST_DIR/expected"
       printf 'false restart_failed\n' > "$TEST_DIR/expected-result"
       printf 'commit\ncommit\n' > "$TEST_DIR/expected-commits"
       grep -q 'unmanaged honk-core process remains' "$TEST_DIR/errors" ;;

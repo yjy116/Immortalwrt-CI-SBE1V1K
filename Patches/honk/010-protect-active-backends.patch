@@ -1,0 +1,26 @@
+--- a/honk/files/lifecycle.sh
++++ b/honk/files/lifecycle.sh
+@@ -178,8 +178,23 @@
+ 	! ip netns list 2>/dev/null | awk '{print $1}' | grep -qx daens
+ }
+ 
++honk_lifecycle_peers_idle() {
++	for hlp_peer in dae daed; do
++		hlp_peer_status=0
++		pidof "$hlp_peer" >/dev/null 2>&1 || hlp_peer_status=$?
++		case "$hlp_peer_status" in
++			1) continue ;;
++			0) echo "honk lifecycle: refusing shared resource cleanup while $hlp_peer is running" >&2 ;;
++			*) echo "honk lifecycle: cannot probe $hlp_peer (pidof exit $hlp_peer_status); refusing shared resource cleanup" >&2 ;;
++		esac
++		return 1
++	done
++	return 0
++}
++
+ honk_lifecycle_reclaim_resources() {
+ 	command -v ip >/dev/null 2>&1 || return 1
++	honk_lifecycle_peers_idle || return 1
+ 	[ -z "$(pidof honk-core 2>/dev/null)" ] || return 1
+ 	for hlp_link in dae0 dae0peer; do
+ 		ip link show "$hlp_link" >/dev/null 2>&1 && ip link del "$hlp_link" >/dev/null 2>&1

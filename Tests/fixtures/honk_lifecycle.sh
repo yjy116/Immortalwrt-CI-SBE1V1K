@@ -24,7 +24,11 @@ honk_lifecycle_starttime() {
 honk_lifecycle_port_open() { return 1; }
 honk_lifecycle_pause() { :; }
 pidof() {
-  [ "$1" = honk-core ] || return 99
+  case "$1" in
+    dae|daed) return 1 ;;
+    honk-core) ;;
+    *) return 99 ;;
+  esac
   case "$ROUTER_STATE" in
     old|new) router_pid ;;
     unmanaged) echo "$UNMANAGED_PID" ;;
@@ -33,15 +37,17 @@ pidof() {
 }
 ip() {
   case "$*" in
-    'link show dae0'|'link show dae0peer') [ "$ROUTER_STATE" = draining ] ;;
-    'netns list') [ "$ROUTER_STATE" != draining ] || echo daens; return 0 ;;
+    'link show dae0') [ "$LINK_DAE0" = 1 ] ;;
+    'link show dae0peer') [ "$LINK_DAE0PEER" = 1 ] ;;
+    'link del dae0') LINK_DAE0=0; echo 'delete-link dae0' >> "$TEST_DIR/effects" ;;
+    'link del dae0peer') LINK_DAE0PEER=0; echo 'delete-link dae0peer' >> "$TEST_DIR/effects" ;;
+    'netns list') [ "$NETNS_STATE" = 0 ] || echo daens; return 0 ;;
+    'netns del daens') NETNS_STATE=0; echo 'delete-netns daens' >> "$TEST_DIR/effects" ;;
     *) echo "unexpected ip operation: $*" >&2; return 99 ;;
   esac
 }
 sleep() {
-  [ "$ROUTER_STATE" = draining ] || return 99
-  echo drain >> "$TEST_DIR/effects"
-  if [ "$scenario" = stop_failure ]; then ROUTER_STATE=unmanaged; else ROUTER_STATE=clear; fi
+  [ "$1" = 1 ] || return 99
 }
 
 honk_core_ready_fixture() {
@@ -55,9 +61,10 @@ honk_init_fixture() {
   case "$1" in
     stop)
       echo stop >> "$TEST_DIR/effects"
-      ROUTER_STATE=draining ;;
+      ROUTER_STATE=clear
+      if [ "$scenario" = stop_failure ]; then ROUTER_STATE=unmanaged; fi ;;
     start)
-      [ "$ROUTER_STATE" = clear ] || return 99
+      [ "$ROUTER_STATE:$LINK_DAE0:$LINK_DAE0PEER:$NETNS_STATE" = clear:0:0:0 ] || return 99
       [ "$scenario" != start_failure ] || return 1
       start
       grep -qx launch "$TEST_DIR/effects" || return 0

@@ -13,7 +13,7 @@ SPEC.loader.exec_module(BACKENDS)
 
 class BackendContractTests(unittest.TestCase):
     def test_patches_have_context_for_branch_drift(self):
-        for name in ("daede",):
+        for name in ("daede", "honk"):
             patches = list((ROOT / "Patches" / name).glob("*.patch"))
             self.assertTrue(patches, name)
             for path in patches:

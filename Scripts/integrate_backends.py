@@ -122,7 +122,8 @@ def validate_backends(paths: dict[str, Path]) -> None:
     shell_tests = (
         ("migration", []), ("service", [paths["daede"]]),
         ("coexistence", [paths["daede"], paths["honk"]]),
-        ("honk", [paths["honk"]]), ("geodata", [paths["geodata"]]),
+        ("honk", [paths["honk"]]), ("honk_resources", [paths["honk"]]),
+        ("geodata", [paths["geodata"]]),
     )
     for name, args in shell_tests:
         run([bash, str(ROOT / "Tests" / f"test_backends_{name}.sh"), *map(str, args)], ROOT)
@@ -136,7 +137,7 @@ def integrate(source: Path) -> Path:
     paths["geodata"] = custom / "reference-tools/v2ray-geodata-updater"
     report = {"daede": inspect_daede(paths["daede"]), "honk": inspect_honk(paths["honk"])}
     report["recipe_stage"] = "raw upstream Makefile assignments before integration patches, not evaluated make values"
-    report["patches"] = {"daede": apply_patches(paths["daede"], "daede"), "honk": []}
+    report["patches"] = {name: apply_patches(paths[name], name) for name in ("daede", "honk")}
     report["migration_sha256"] = install_migration(paths["daede"])
     validate_backends(paths)
     report["validation"] = "real upstream shell/JS with router I/O fixtures; no device or BPF runtime verification"
