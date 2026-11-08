@@ -6,6 +6,12 @@ trap 'rm -rf "$TEST_DIR"' EXIT
 export TEST_DIR
 INIT="$HONK_DIR/honk/files/honk.init"
 RPC="$HONK_DIR/luci-app-honk/root/usr/libexec/rpcd/honk"
+FIXTURES=$(cd "$(dirname "$0")/fixtures" && pwd)
+# Keep upstream lifecycle decisions; map only router paths and I/O into fixtures.
+sed -e "s|/var/run/honk|$TEST_DIR/runtime|g" \
+  -e 's|/etc/init.d/honk|honk_init_fixture|g' \
+  "$HONK_DIR/honk/files/lifecycle.sh" > "$TEST_DIR/lifecycle.sh"
+printf '\nsource "%s/honk_lifecycle.sh"\n' "$FIXTURES" >> "$TEST_DIR/lifecycle.sh"
 printf 'configuration sentinel\n' > "$TEST_DIR/config.dae"
 cp "$TEST_DIR/config.dae" "$TEST_DIR/original.dae"
 
@@ -42,6 +48,7 @@ cat() {
 
 load_init() {
   source <(sed -e '\|^\. /lib/functions.sh$|d' \
+    -e "s|/usr/share/honk/lifecycle.sh|$TEST_DIR/lifecycle.sh|g" \
     -e 's|/usr/bin/honk-core|honk_core_fixture|g' \
     -e "s|/var/run/honk|$TEST_DIR/runtime|g" "$INIT")
   HONK_CONFIG="$TEST_DIR/config.dae"
@@ -54,7 +61,6 @@ start() {
   :
   if type service_started >/dev/null 2>&1; then service_started; fi
 }
-restart() { start; }
 
 check_service() (
   EXPECT_ENABLED=$1 EXPECT_INITIALIZED=$2 action=$3
@@ -75,11 +81,43 @@ check_service() (
   cmp "$TEST_DIR/config.dae" "$TEST_DIR/original.dae"
 )
 
-for action in start boot restart reload_service; do
+for action in start boot; do
   check_service 0 0 "$action"
   check_service 0 1 "$action"
   check_service 1 0 "$action"
   check_service 1 1 "$action"
+done
+
+check_restart() (
+  EXPECT_ENABLED=1 EXPECT_INITIALIZED=1 action=$1 scenario=$2
+  ROUTER_STATE=old
+  : > "$TEST_DIR/effects"
+  load_init
+  result=0
+  "$action" 2> "$TEST_DIR/errors" || result=$?
+  case "$scenario" in
+    normal)
+      [ "$result" = 0 ]
+      printf 'stop\ndrain\nlaunch\n' > "$TEST_DIR/expected"
+      cmp "$TEST_DIR/expected" "$TEST_DIR/effects" ;;
+    stop_failure)
+      [ "$result" != 0 ]
+      ! grep -qx launch "$TEST_DIR/effects"
+      grep -q 'unmanaged honk-core process remains' "$TEST_DIR/errors" ;;
+    start_failure)
+      [ "$result" != 0 ]
+      ! grep -qx launch "$TEST_DIR/effects"
+      grep -q 'init start failed' "$TEST_DIR/errors" ;;
+    *) echo "unknown restart scenario: $scenario" >&2; return 99 ;;
+  esac
+  [ "$EXPECT_ENABLED" = 1 ]
+  cmp "$TEST_DIR/config.dae" "$TEST_DIR/original.dae"
+)
+
+for action in restart reload_service; do
+  for scenario in normal stop_failure start_failure; do
+    check_restart "$action" "$scenario"
+  done
 done
 
 # Exercise actual RPC case arms, not rewritten enable/disable logic.
@@ -101,11 +139,11 @@ check_rpc() (
   source "$TEST_DIR/rpc-functions"
   begin_mutation() { :; }
   service_ready_config() { return 0; }
-  emit_result() { printf '%s %s\n' "$*" >> "$TEST_DIR/rpc-effects"; }
+  emit_result() { printf '%s %s\n' "$1" "$2" >> "$TEST_DIR/rpc-effects"; }
   honk_lifecycle_managed_pid() { :; }
-  honk_lifecycle_start() { echo launch >> "$TEST_DIR/rpc-effects"; }
+  honk_lifecycle_start() { echo launch >> "$TEST_DIR/rpc-effects"; return "${start_status:-0}"; }
   honk_lifecycle_stop() { echo stop >> "$TEST_DIR/rpc-effects"; return "${stop_status:-0}"; }
-  honk_lifecycle_restart() { echo restart >> "$TEST_DIR/rpc-effects"; }
+  honk_lifecycle_restart() { echo restart >> "$TEST_DIR/rpc-effects"; return "${restart_status:-0}"; }
   set -- call "$2"
   source "$TEST_DIR/rpc-dispatch"
 )
@@ -125,5 +163,61 @@ check_rpc 1 stop
 grep -qx stop "$TEST_DIR/rpc-effects"
 if stop_status=1 check_rpc 1 stop; then echo 'failed stop unexpectedly succeeded'; exit 1; fi
 [ "$(command cat "$TEST_DIR/enabled")" = 1 ]
+if start_status=1 check_rpc 0 start; then echo 'failed start unexpectedly succeeded'; exit 1; fi
+[ "$(command cat "$TEST_DIR/enabled")" = 0 ]
+if restart_status=1 check_rpc 0 restart; then echo 'failed restart unexpectedly succeeded'; exit 1; fi
+[ "$(command cat "$TEST_DIR/enabled")" = 0 ]
+
+load_rpc_lifecycle() {
+  load_init
+  source "$TEST_DIR/rpc-functions"
+  source "$TEST_DIR/lifecycle.sh"
+  config_get_bool() {
+    case "$3" in
+      enabled) printf -v "$1" '%s' "$(command cat "$TEST_DIR/enabled")" ;;
+      initialized) printf -v "$1" '%s' "$EXPECT_INITIALIZED" ;;
+      *) return 99 ;;
+    esac
+  }
+  begin_mutation() { :; }
+  emit_result() { printf '%s %s\n' "$1" "$2" >> "$TEST_DIR/rpc-result"; }
+}
+
+check_rpc_lifecycle() (
+  scenario=$1 EXPECT_INITIALIZED=1 ROUTER_STATE=old
+  printf '0\n' > "$TEST_DIR/enabled"
+  : > "$TEST_DIR/effects"
+  : > "$TEST_DIR/rpc-effects"
+  : > "$TEST_DIR/rpc-result"
+  load_rpc_lifecycle
+  result=0
+  (set -- call restart; source "$TEST_DIR/rpc-dispatch") 2> "$TEST_DIR/errors" || result=$?
+  case "$scenario" in
+    normal)
+      [ "$result" = 0 ] || {
+        command cat "$TEST_DIR/errors" >&2
+        echo 'RPC lifecycle restart unexpectedly failed' >&2; return 1;
+      }
+      [ "$(command cat "$TEST_DIR/enabled")" = 1 ]
+      printf 'stop\ndrain\nlaunch\n' > "$TEST_DIR/expected"
+      printf 'true restarted\n' > "$TEST_DIR/expected-result"
+      printf 'commit\n' > "$TEST_DIR/expected-commits" ;;
+    stop_failure)
+      [ "$result" != 0 ]
+      [ "$(command cat "$TEST_DIR/enabled")" = 0 ]
+      printf 'stop\ndrain\n' > "$TEST_DIR/expected"
+      printf 'false restart_failed\n' > "$TEST_DIR/expected-result"
+      printf 'commit\ncommit\n' > "$TEST_DIR/expected-commits"
+      grep -q 'unmanaged honk-core process remains' "$TEST_DIR/errors" ;;
+    *) echo "unknown RPC lifecycle scenario: $scenario" >&2; return 99 ;;
+  esac
+  cmp "$TEST_DIR/expected" "$TEST_DIR/effects"
+  cmp "$TEST_DIR/expected-result" "$TEST_DIR/rpc-result"
+  cmp "$TEST_DIR/expected-commits" "$TEST_DIR/rpc-effects"
+  cmp "$TEST_DIR/config.dae" "$TEST_DIR/original.dae"
+)
+
+check_rpc_lifecycle normal
+check_rpc_lifecycle stop_failure
 cmp "$TEST_DIR/config.dae" "$TEST_DIR/original.dae"
-echo 'PASS: native Honk start/restart enable, successful stop disables, boot follows enabled'
+echo 'PASS: native Honk restart drains before start; failures propagate; RPC intent rolls back; boot follows enabled'

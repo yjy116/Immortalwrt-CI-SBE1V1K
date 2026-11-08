@@ -21,7 +21,7 @@ jobs:
         run: timeout 60s python3 -m unittest discover -s Tests -v
       - name: Check shell syntax
         run: |
-          for script in Scripts/*.sh Tests/*.sh files/etc/uci-defaults/* packages/*/root/etc/init.d/*; do bash -n "$script"; done
+          for script in Scripts/*.sh Tests/*.sh Tests/fixtures/*.sh files/etc/uci-defaults/* packages/*/root/etc/init.d/*; do bash -n "$script"; done
       - name: Check device plugin JavaScript syntax
         run: node --check packages/luci-app-sbe1v1k-fan/htdocs/luci-static/resources/view/sbe1v1k-fan.js
       - name: Validate workflow syntax
