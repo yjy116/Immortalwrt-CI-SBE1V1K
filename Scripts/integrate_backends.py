@@ -60,7 +60,8 @@ def inspect_honk(directory: Path) -> dict:
     ui = recipe(directory / "luci-app-honk/Makefile")
     values, ui_values = core["fields"], ui["fields"]
     tag = values.get("HONK_SOURCE_TAG", "")
-    require(bool(re.fullmatch(r"source-\d+", tag)), "Honk requires an immutable source release tag")
+    require(bool(re.fullmatch(r"source-(?:\d+|verified-\d{8})", tag)),
+            "Honk requires a versioned source release tag")
     require(ui_values.get("HONK_SOURCE_TAG") == tag, "Honk/Doona source tags differ")
     require(bool(re.fullmatch(r"[0-9a-f]{40}", values.get("CORE_COMMIT", ""))), "Invalid Honk core commit")
     for arch in ("X86_64", "AARCH64", "ARMV7"):
