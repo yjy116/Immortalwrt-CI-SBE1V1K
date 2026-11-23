@@ -93,6 +93,24 @@ def apply_patches(directory: Path, name: str) -> list[dict]:
     return result
 
 
+def configure_daede_host_dependency(directory: Path) -> str:
+    path = directory / "luci-app-daede/Makefile"
+    lines = path.read_bytes().splitlines(keepends=True)
+    package_include = b"include $(INCLUDE_DIR)/package.mk"
+    matches = [index for index, line in enumerate(lines) if line.rstrip(b" \t\r\n") == package_include]
+    require(len(matches) == 1, f"Expected one package.mk include in {path}")
+    index = matches[0]
+    newline = b"\r\n" if lines[index].endswith(b"\r\n") else b"\n"
+    # Build/Prepare uses po2lmo, which is supplied by the LuCI host build.
+    lines[index:index] = [
+        b"ifeq ($(filter luci-base/host,$(PKG_BUILD_DEPENDS)),)" + newline,
+        b"PKG_BUILD_DEPENDS+=luci-base/host" + newline,
+        b"endif" + newline,
+    ]
+    path.write_bytes(b"".join(lines))
+    return checksum(path)
+
+
 def install_migration(directory: Path) -> str:
     source = ROOT / "files/etc/uci-defaults/89-daede-migrate"
     target = directory / "luci-app-daede/root/etc/uci-defaults/89-daede-migrate"
@@ -139,6 +157,7 @@ def integrate(source: Path) -> Path:
     report = {"daede": inspect_daede(paths["daede"]), "honk": inspect_honk(paths["honk"])}
     report["recipe_stage"] = "raw upstream Makefile assignments before integration patches, not evaluated make values"
     report["patches"] = {name: apply_patches(paths[name], name) for name in ("daede", "honk")}
+    report["daede_luci_makefile_sha256"] = configure_daede_host_dependency(paths["daede"])
     report["migration_sha256"] = install_migration(paths["daede"])
     validate_backends(paths)
     report["validation"] = "real upstream shell/JS with router I/O fixtures; no device or BPF runtime verification"

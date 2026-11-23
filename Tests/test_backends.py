@@ -2,6 +2,8 @@
 import importlib.util
 from pathlib import Path
 import re
+import shutil
+import subprocess
 import tempfile
 import unittest
 
@@ -12,6 +14,51 @@ SPEC.loader.exec_module(BACKENDS)
 
 
 class BackendContractTests(unittest.TestCase):
+    def test_daede_host_dependency_preserves_upstream_metadata(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            makefile = root / "luci-app-daede/Makefile"
+            makefile.parent.mkdir()
+            include = "include $(INCLUDE_DIR)/package.mk\n"
+            for release in ("13", "14", "15"):
+                with self.subTest(release=release):
+                    metadata = f"PKG_NAME:=luci-app-daede\nPKG_RELEASE:={release}\nPKG_BUILD_DEPENDS:=other/host\n"
+                    makefile.write_text(metadata + include, encoding="utf-8")
+                    BACKENDS.configure_daede_host_dependency(root)
+                    upstream, _, after = makefile.read_text(encoding="utf-8").partition(include)
+                    self.assertTrue(upstream.startswith(metadata))
+                    self.assertIn("luci-base/host", upstream.removeprefix(metadata))
+                    self.assertEqual(after, "")
+
+    @unittest.skipUnless(shutil.which("make"), "requires GNU make")
+    def test_daede_host_dependency_is_visible_to_openwrt_package_include(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            makefile = root / "luci-app-daede/Makefile"
+            makefile.parent.mkdir()
+            (root / "package.mk").write_text("observed := $(PKG_BUILD_DEPENDS)\ncheck:\n\t@echo $(observed)\n",
+                                             encoding="utf-8")
+            make = shutil.which("make")
+            for dependencies in ("other/host", "other/host luci-base/host"):
+                with self.subTest(dependencies=dependencies):
+                    makefile.write_text(f"PKG_BUILD_DEPENDS:={dependencies}\n"
+                                        "include $(INCLUDE_DIR)/package.mk\n", encoding="utf-8")
+                    BACKENDS.configure_daede_host_dependency(root)
+                    result = subprocess.run([make, "-f", str(makefile), "INCLUDE_DIR=.", "check"],
+                                            cwd=root, check=True, capture_output=True, text=True, timeout=60)
+                    self.assertEqual(result.stdout.strip(), "other/host luci-base/host")
+
+    def test_daede_host_dependency_requires_unambiguous_package_include(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            makefile = root / "luci-app-daede/Makefile"
+            makefile.parent.mkdir()
+            original = "include $(INCLUDE_DIR)/different.mk\n"
+            makefile.write_text(original, encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "package.mk include in .*luci-app-daede[/\\\\]Makefile"):
+                BACKENDS.configure_daede_host_dependency(root)
+            self.assertEqual(makefile.read_text(encoding="utf-8"), original)
+
     def test_patches_have_context_for_branch_drift(self):
         for name in ("daede", "honk"):
             patches = list((ROOT / "Patches" / name).glob("*.patch"))

@@ -80,22 +80,9 @@ index 9277774..8e16fc2 100644
  	config_get log_maxsize "config" "log_maxsize" "5"
  
 diff --git a/luci-app-daede/Makefile b/luci-app-daede/Makefile
-index 6514a54..e4108a6 100644
 --- a/luci-app-daede/Makefile
 +++ b/luci-app-daede/Makefile
-@@ -7,10 +7,11 @@ include $(TOPDIR)/rules.mk
- PKG_NAME:=luci-app-daede
- PKG_VERSION:=1.15
- PKG_RELEASE:=13
- PKG_MAINTAINER:=kenzok8
- PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)
-+PKG_BUILD_DEPENDS:=luci-base/host
- 
- include $(INCLUDE_DIR)/package.mk
- 
- define Package/$(PKG_NAME)/config
- 	choice
-@@ -59,10 +60,11 @@ endef
+@@ -59,10 +59,11 @@ endef
  define Package/$(PKG_NAME)/install
  	$(INSTALL_DIR) $(1)/etc/config
  	$(INSTALL_DATA) ./root/etc/config/daede $(1)/etc/config/daede

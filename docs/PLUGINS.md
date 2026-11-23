@@ -31,6 +31,8 @@ SBE1V1K 自带风扇，额外使用本仓库维护的 [`luci-app-sbe1v1k-fan`](.
 
 DAE / DAED 沿用参考仓库的统一后端、互斥、迁移与 geodata 整合，补丁针对当前分支重新制作，并验证真实 shell / JavaScript 逻辑。Honk 保留上游启动、停止、重启及初始化逻辑；主动重启可以开启已关闭的服务。设备正常启动按保存的 enabled 状态处理。Doona 随 Honk 服务提供，不额外设置开机服务。
 
+`luci-app-daede` 的翻译编译依赖 `luci-base/host`。CI 在载入 OpenWrt 打包规则前补充这项依赖，保留上游的版本号和其他依赖，并将集成后的 Makefile 摘要记入 `ci-backend-components.json`。仅更新上游包版本号时，无需调整补丁。
+
 Honk 增加一处共存补丁：回收共享 `dae0` / `dae0peer` / `daens` 前检查 DAE/DAED；它们仍在运行或进程探测失败时，拒绝删除这些资源并报告错误。无人占用时仍使用上游的残留回收流程。此补丁不修改 enabled、初始化或启停开关语义；用于修复上游新增回收逻辑可能破坏另一后端网络的问题，补丁及摘要记录于 `ci-backend-components.json`。
 
 Honk 回归检查执行集成后的真实 init、RPC 和 lifecycle 脚本，验证资源回收后再启动、活动后端资源不被删除，以及失败返回和开关状态恢复。测试只替换路由器 I/O 与等待边界；该检查不代表路由器上的实际进程、网络或 BPF 验证。
