@@ -80,6 +80,28 @@ class DefaultsTests(unittest.TestCase):
         self.assertNotIn("12345678", wireless)
         self.assertNotIn("'CN'", wireless)
 
+    def test_uci_api_generator_keeps_detection_and_provisioning(self):
+        discovery = "if (radio_exists(phy.path, macaddr, phy_name, radio.index)) continue;\n"
+        provision = "if (provision_country) country = provision_country;\n"
+        commit = "if (commit && !cfg.commit('wireless')) die('cannot commit');\n"
+        self.wireless.write_text(discovery + provision + """set_section(name, 'wifi-device', {
+    htmode, country: country || 'CN', radio: radio.index
+});
+set_section(iface, 'wifi-iface', {
+    device: name, network: 'lan', mode: 'ap', ssid: defaults?.ssid || 'OWRT',
+    encryption: defaults?.encryption || 'psk2+ccmp',
+    key: defaults?.key || '12345678', disabled: '0'
+});
+""" + commit, encoding="utf-8")
+        apply_defaults(self.source)
+        result = self.wireless.read_text(encoding="utf-8")
+        self.assertTrue(result.startswith(discovery + provision))
+        self.assertTrue(result.endswith(commit))
+        self.assertIn("country: country || ''", result)
+        self.assertIn("ssid: defaults?.ssid || 'SBE1V1K'", result)
+        self.assertIn("encryption: defaults?.encryption || (band_name == '6g' ? 'owe' : 'none')", result)
+        self.assertIn("key: defaults?.key || '', disabled: '1'", result)
+
     def test_wireless_drift_preserves_all_original_files(self):
         generator, luci = self.generator.read_text(), self.luci.read_text()
         self.wireless.write_text("changed upstream\n")
